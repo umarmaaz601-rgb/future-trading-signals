@@ -1,9 +1,9 @@
 name: 24/7 scanner
 
 # Runs the full checklist scan every 5 minutes on GitHub's servers,
-# sends Telegram alerts and refreshes dashboard/data.json.
-# State (cooldowns) + signals.log + data.json are carried between runs
-# with the actions cache.
+# sends Telegram alerts, refreshes dashboard/data.json and redeploys
+# the mobile dashboard (GitHub Pages) with the fresh data - so the
+# phone app's notification poller sees new signals within ~6 minutes.
 
 on:
   schedule:
@@ -14,10 +14,18 @@ concurrency:
   group: signal-scan
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,3 +57,13 @@ jobs:
           STRONG_ONLY: "1"
           PROB_MIN: "0.4"
         run: python gh_runner.py
+
+      - name: Publish dashboard
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: Deploy to Pages
+        id: deploy
+        continue-on-error: true   # never fail a scan over a Pages hiccup
+        uses: actions/deploy-pages@v4

@@ -270,9 +270,9 @@ Repo: **https://github.com/umarmaaz601-rgb/future-trading-signals**
 | Kya | Kaise |
 |-----|-------|
 | **24/7 scanner** | `.github/workflows/scan.yml` — har 5 minute GitHub ke servers par pura scan + Telegram alerts (PC band ho to bhi chalta hai) |
-| **Mobile dashboard** | https://umarmaaz601-rgb.github.io/future-trading-signals/ — phone browser mein kholo, menu se **Add to Home Screen** = app icon |
-| **Android APK** | Actions → **build mobile APK** → run → `apk-latest` release se `FutureSignals.apk` download karke phone par install karo |
-| **Push alerts on phone** | Telegram bot (section 2) — yehi asli "app notification" hai |
+| **Mobile dashboard** | https://umarmaaz601-rgb.github.io/future-trading-signals/ — har scan (5 min) ke baad update; phone browser mein kholo, menu se **Add to Home Screen** = app icon |
+| **Android APK (built-in notifications)** | Actions → **build mobile APK** → run → `apk-latest` release se `FutureSignals.apk` download karke phone par install karo. **v1.1:** app har 90 second dashboard check karta hai aur har naye signal par **phone notification** deta hai (install ke baad *Allow notifications* + *Allow battery* zaroor dabayein, app ko background mein chhorein) |
+| **Push alerts on phone (backup)** | Telegram bot (section 2) — app band/swipe ho tab bhi alerts bhejta hai |
 
 **Cloud Telegram setup** (ek baar): repo → **Settings → Secrets and variables
 → Actions → New repository secret**:
