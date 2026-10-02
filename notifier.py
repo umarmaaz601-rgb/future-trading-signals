@@ -72,9 +72,12 @@ def signal_message(sig):
     rows.append(f'<b>TP1</b>: <code>{tp1:.6g}</code> ({pct(tp1, e)})  '
                 f'<b>TP2</b>: <code>{tp2:.6g}</code> ({pct(tp2, e)})')
     rows.append(f'<b>TP3</b>: <code>{tp3:.6g}</code> ({pct(tp3, e)})')
-    if getattr(sig, "prob", -1.0) >= 0:
-        rows.append(f'<b>P(1:2)</b>: {sig.prob:.0%} to hit TP1 '
+    prob = getattr(sig, "prob", None)
+    if prob is not None and prob >= 0:
+        rows.append(f'<b>P(1:2)</b>: {prob:.0%} to hit TP1 '
                     f'({config.TP1_R:.0f}R) before the stop')
+    elif prob is None:
+        rows.append(f'<b>P(1:2)</b>: not enough 2m history to measure')
     rows.append("")
     rows.append(f'<b>Leverage</b>: {sig.leverage}x')
     rows.append(f'<b>Position size</b>: {sig.size_usdt:,.0f} USDT  '
@@ -105,9 +108,12 @@ def print_signal(sig):
     for i, tp in enumerate(sig.take_profits, 1):
         print(f"  TP{i}        : {tp:.6g}  "
               f"({(tp - sig.entry) / sig.entry * 100:+.2f}%)")
-    if getattr(sig, "prob", -1.0) >= 0:
-        print(f"  P(1:2)      : {sig.prob:.0%} chance to hit TP1 "
+    prob = getattr(sig, "prob", None)
+    if prob is not None and prob >= 0:
+        print(f"  P(1:2)      : {prob:.0%} chance to hit TP1 "
               f"({config.TP1_R:.0f}R) before the stop")
+    elif prob is None:
+        print("  P(1:2)      : not enough 2m history to measure")
     print(f"  Leverage   : {sig.leverage}x   size {sig.size_usdt:,.0f} USDT "
           f"(margin {sig.margin:,.1f})")
     for name, ok, detail in sig.checklist:
@@ -120,8 +126,8 @@ def log_signal(sig):
     try:
         with open(config.LOG_FILE, "a", encoding="utf-8") as f:
             tps = ",".join(f"{t:.6g}" for t in sig.take_profits)
-            prob = getattr(sig, "prob", -1.0)
-            p = f"p={prob:.0%} " if prob >= 0 else ""
+            prob = getattr(sig, "prob", None)
+            p = f"p={prob:.0%} " if (prob is not None and prob >= 0) else ""
             f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {sig.side} "
                     f"{sig.symbol} grade={sig.grade} score={sig.score} "
                     f"entry={sig.entry:.6g} sl={sig.stop_loss:.6g} "

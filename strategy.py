@@ -354,7 +354,8 @@ def build_signal(symbol, side, score, entry, sl, ctx, coin_reg, trig,
                  leverage=config.MAX_LEVERAGE, margin=margin,
                  size_usdt=size_usdt, risk_usdt=min(risk_usdt, size_usdt * stop_pct / 100.0))
     sig.cls = getattr(ctx, "cls", "crypto")
-    sig.prob = float(prob)
+    sig.prob = None if prob is None else float(prob)   # None = not enough
+    #                               history to decide (fail-open, see evaluate)
 
     # grade (cutoffs differ per market class - see GRADE_CUT)
     sig.grade = grade_of(score, sig.cls)
