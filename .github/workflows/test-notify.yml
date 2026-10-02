@@ -1,0 +1,80 @@
+name: test phone notification
+
+# One-off: pushes a clearly-marked TEST signal into dashboard/data.json
+# and redeploys Pages, so the Android app's 90-second poller raises a
+# notification.  Proves the whole chain: Actions -> Pages -> phone.
+# Run it with:  gh workflow run test-notify.yml
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: signal-scan            # same queue as the real scanner
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore state (shares history with the scanner)
+        uses: actions/cache@v4
+        with:
+          path: |
+            state.json
+            signals.log
+            dashboard/data.json
+          key: scan-state-${{ github.run_id }}
+          restore-keys: scan-state-
+
+      - name: Insert TEST signal
+        run: |
+          python - <<'PY'
+          import json, os, time
+          p = "dashboard/data.json"
+          try:
+              with open(p, encoding="utf-8") as f:
+                  data = json.load(f)
+          except (OSError, ValueError):
+              data = {}
+          now = int(time.time())
+          # drop any previous test entries so repeats stay clean
+          sigs = [s for s in (data.get("signals") or [])
+                  if "TEST-DO-NOT-TRADE" not in str(s.get("symbol", ""))]
+          sigs.insert(0, {
+              "symbol": "TEST-DO-NOT-TRADE", "side": "LONG",
+              "grade": "TEST", "score": 0, "ts": now,
+              "entry": 123.45, "stop_loss": 122.98, "stop_pct": 0.38,
+              "take_profits": [124.40, 124.86, 125.81],
+              "leverage": 50, "prob": 0.50, "mkt": "test",
+              "checklist": [["TEST", True,
+                             "chain check - do NOT trade this"]],
+          })
+          data["signals"] = sigs[:40]
+          data["updated"] = time.strftime("%Y-%m-%d %H:%M:%S UTC",
+                                           time.gmtime())
+          os.makedirs("dashboard", exist_ok=True)
+          with open(p, "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=1)
+          print("test signal inserted, ts =", now)
+          PY
+
+      - name: Publish dashboard
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: Deploy to Pages
+        id: deploy
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
