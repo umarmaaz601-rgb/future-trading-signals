@@ -144,6 +144,13 @@ def main():
     merged = sorted(merged, key=lambda d: d.get("ts") or 0,
                     reverse=True)[:40]
 
+    # ---- TP/SL outcome of every tracked signal (the mobile app shows it)
+    try:
+        from outcomes import update_outcomes
+        update_outcomes(merged, hub=s.hub, log=on_log)
+    except Exception:
+        traceback.print_exc()
+
     data = {
         "updated": time.strftime("%Y-%m-%d %H:%M:%S UTC",
                                  time.gmtime()),

@@ -186,7 +186,7 @@ class YfSource:
                          progress=False, auto_adjust=False, threads=True)
         return df
 
-    def candles_1m(self, sym, limit=500):
+    def candles_1m(self, sym, limit=1500):
         self._check_fail(sym)
         now = time.time()
         with self._lock:

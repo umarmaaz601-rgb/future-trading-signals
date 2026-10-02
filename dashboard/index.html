@@ -46,6 +46,9 @@
   .chip.a{border-color:var(--green); color:var(--green)}
   .chip.b{border-color:var(--blue); color:var(--blue)}
   .chip.p{border-color:var(--amber); color:var(--amber)}
+  .chip.oc{border-color:var(--green); color:var(--green); font-weight:700}
+  .chip.oc.sl{border-color:var(--red); color:var(--red)}
+  .chip.oc.live{border-color:var(--blue); color:var(--blue); font-weight:600}
   .mkt{font-size:10px; color:var(--muted); text-transform:uppercase}
   .lvls{display:grid; grid-template-columns:repeat(5,1fr); gap:6px;
         margin-top:9px; font-size:11px}
@@ -148,6 +151,10 @@ function render(d){
       const t = (s.take_profits || []).map(num).join(" ");
       const prob = (s.prob !== null && s.prob !== undefined && s.prob >= 0)
         ? `<span class="chip p">P(1:2) ${(100*s.prob).toFixed(0)}%</span>` : "";
+      const oc = s.outcome
+        ? `<span class="chip oc ${s.outcome.includes("SL") ? "sl"
+             : (s.outcome_final ? "" : "live")}">${esc(s.outcome)}${s.outcome_final
+             ? "" : " ⏳"}</span>` : "";
       const tg = s.telegram_ok === undefined ? ""
         : `<span class="${s.telegram_ok ? "ok" : "no"}">${s.telegram_ok ? "✓ telegram" : "telegram n/a"}</span>`;
       const time = s.ts ? new Date(s.ts*1000).toTimeString().slice(0,5) : "";
@@ -157,7 +164,7 @@ function render(d){
           <span class="sym">${esc(s.symbol)}</span>
           <span class="side">${esc(s.side)}</span>
           ${gradeChip(s.grade)}<span class="chip">score ${s.score}</span>
-          ${prob}${mkt}
+          ${prob}${oc}${mkt}
         </div>
         <div class="lvls">
           <div><b>ENTRY</b>${num(s.entry)}</div>
@@ -174,7 +181,7 @@ function render(d){
   const w = (d.watch || []).slice(0, 25);
   document.getElementById("watch").innerHTML = w.length
     ? w.map(r => `<div class="wrow">
-        <b>${esc(r.symbol)}</b>
+        <b>${esc(r.sym)}</b>
         <span class="${r.side === "SHORT" ? "no" : "ok"}">${esc(r.side)}</span>
         ${gradeChip(r.grade)}
         <span class="sc">${r.score}</span>

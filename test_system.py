@@ -408,7 +408,7 @@ def test_strong_mode():
 
 
 def test_network():
-    print("\n7) LIVE DATA (network)")
+    print("\n8) LIVE DATA (network)")
     import context
     import scanner as scanner_mod
     try:
@@ -438,6 +438,44 @@ def test_network():
         return False
 
 
+def test_outcomes():
+    print("\n7) TRADE OUTCOMES (TP / SL replay)")
+    from outcomes import walk
+    ok = True
+    t0s = 1_790_000_000                 # signal time in seconds
+    bars = lambda rows: [(t0s * 1000 + i * 60_000, hi, lo)
+                         for i, (hi, lo) in enumerate(rows)]
+    sl, tps = 99.4, [100.6, 100.9, 101.5]
+    seq, fin = walk(bars([(100.2, 99.8)]), t0s, "LONG", sl, tps)
+    ok &= check("running trade shows nothing",
+                seq is None and not fin, f"-> {seq}")
+    seq, fin = walk(bars([(100.2, 99.3)]), t0s, "LONG", sl, tps)
+    ok &= check("SL first = final", seq == "SL" and fin, f"-> {seq}")
+    seq, fin = walk(bars([(100.7, 100.1)]), t0s, "LONG", sl, tps)
+    ok &= check("TP1 hit, still live", seq == "TP1" and not fin,
+                f"-> {seq}")
+    seq, fin = walk(bars([(100.7, 100.1), (101.0, 100.5),
+                          (101.6, 101.0)]), t0s, "LONG", sl, tps)
+    ok &= check("full ladder TP1->TP2->TP3",
+                seq == "TP1->TP2->TP3" and fin, f"-> {seq}")
+    seq, fin = walk(bars([(100.7, 100.1), (100.3, 99.2)]),
+                    t0s, "LONG", sl, tps)
+    ok &= check("TP1 then SL", seq == "TP1->SL" and fin, f"-> {seq}")
+    seq, fin = walk(bars([(100.7, 99.2)]), t0s, "LONG", sl, tps)
+    ok &= check("one candle with TP1+SL counts as SL",
+                seq == "SL" and fin, f"-> {seq}")
+    ssl, stps = 80.6, [79.4, 79.1, 78.5]
+    seq, fin = walk(bars([(79.9, 79.3)]), t0s, "SHORT", ssl, stps)
+    ok &= check("SHORT TP1 hit", seq == "TP1" and not fin, f"-> {seq}")
+    seq, fin = walk(bars([(79.9, 79.3), (80.7, 79.9)]),
+                    t0s, "SHORT", ssl, stps)
+    ok &= check("SHORT TP1 then SL", seq == "TP1->SL" and fin, f"-> {seq}")
+    seq, fin = walk([(t0s - 300, 99.0, 98.0)], t0s, "LONG", sl, tps)
+    ok &= check("candles before the signal ignored",
+                seq is None and not fin, f"-> {seq}")
+    return ok
+
+
 def main():
     print("=" * 62)
     print("  SYSTEM SELF-TEST")
@@ -449,6 +487,7 @@ def main():
         test_strategy(),
         test_multi_market(),
         test_strong_mode(),
+        test_outcomes(),
     ]
     if "--offline" not in sys.argv:
         results.append(test_network())

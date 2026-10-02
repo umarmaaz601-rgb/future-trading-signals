@@ -107,6 +107,7 @@ public class PollService extends Service {
                 }
             }
             sp.edit().putLong("last_ts", max).apply();
+            syncOutcomes(arr, sp, true);        // swallow TP/SL history too
             updateOngoing(root, "live - " + (arr == null ? 0 : arr.length())
                     + " signals loaded");
             return;
@@ -130,8 +131,91 @@ public class PollService extends Service {
         if (fresh > 0) {
             sp.edit().putLong("last_ts", last).apply();
         }
+        int oc = syncOutcomes(arr, sp, false);
         updateOngoing(root, "live - updated " + root.optString("updated", "?")
-                + (fresh > 0 ? " - " + fresh + " NEW" : ""));
+                + (fresh > 0 ? " - " + fresh + " NEW" : "")
+                + (oc > 0 ? " - " + oc + " TP/SL" : ""));
+    }
+
+    /**
+     * Compare every signal's "outcome" field (TP1/TP2/TP3/SL sequence)
+     * against the last one we saw; on a change raise a notification.
+     * First run just stores the map so old results never notify.
+     */
+    private int syncOutcomes(JSONArray arr, SharedPreferences sp,
+                             boolean firstRun) {
+        int changed = 0;
+        try {
+            JSONObject outs = new JSONObject(sp.getString("outcomes", "{}"));
+            boolean dirty = false;
+            if (arr != null) {
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject s = arr.optJSONObject(i);
+                    if (s == null) continue;
+                    String out = s.optString("outcome", "");
+                    if (out.isEmpty()) continue;
+                    String key = s.optString("symbol", "?") + "|"
+                            + s.optLong("ts", 0L);
+                    if (out.equals(outs.optString(key, ""))) continue;
+                    outs.put(key, out);
+                    dirty = true;
+                    if (!firstRun) {
+                        postOutcome(s, out);
+                        changed++;
+                    }
+                }
+            }
+            if (dirty || firstRun) {
+                sp.edit().putString("outcomes", outs.toString()).apply();
+            }
+        } catch (Exception ignored) {
+            // never let the outcome map break the poller
+        }
+        return changed;
+    }
+
+    /** Notification for a TP/SL result (replaces the previous one for
+     *  the same signal, so TP1 -> TP1->TP2 updates in place). */
+    private void postOutcome(JSONObject s, String out) {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm == null) {
+            return;
+        }
+        boolean sl = out.contains("SL");
+        boolean fin = s.optBoolean("outcome_final", false);
+        String title = (sl ? "❌ SL hit — " : "🎯 TP hit — ")
+                + s.optString("symbol", "?");
+        StringBuilder body = new StringBuilder(out)
+                .append(fin ? "   (final)" : "   (running)")
+                .append("\nEntry ").append(fmt(s.optDouble("entry")))
+                .append("   SL ").append(fmt(s.optDouble("stop_loss")));
+        JSONArray tp = s.optJSONArray("take_profits");
+        if (tp != null && tp.length() > 0) {
+            body.append("\nTP1 ").append(fmt(tp.optDouble(0)));
+        }
+        if (tp != null && tp.length() > 1) {
+            body.append("   TP2 ").append(fmt(tp.optDouble(1)));
+        }
+        if (tp != null && tp.length() > 2) {
+            body.append("   TP3 ").append(fmt(tp.optDouble(2)));
+        }
+        long ts = s.optLong("ts", System.currentTimeMillis() / 1000L);
+        PendingIntent pi = PendingIntent.getActivity(this, (int) ts,
+                new Intent(this, MainActivity.class),
+                PendingIntent.FLAG_IMMUTABLE);
+        Notification n = new Notification.Builder(this, CH_SIGNALS)
+                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .setContentTitle(title)
+                .setContentText(out)
+                .setStyle(new Notification.BigTextStyle()
+                        .bigText(body.toString()))
+                .setContentIntent(pi)
+                .setWhen(System.currentTimeMillis())
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .build();
+        nm.notify("outcome",
+                s.optString("symbol", "?").hashCode() ^ (int) ts, n);
     }
 
     private void postSignal(JSONObject s, long ts) {
