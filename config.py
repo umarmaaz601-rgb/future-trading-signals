@@ -76,9 +76,9 @@ TP1_R, TP2_R, TP3_R = 2.0, 3.0, 5.0   # take profits at 2x / 3x / 5x of risk
 #     candles as starting points and ask: how often did price reach
 #     TP1 (= TP1_R x risk) BEFORE the stop loss?  Signals are only sent
 #     when that measured probability is at least PROB_MIN.
-#     Breakeven for a 1:2 trade is 33% - so 40%+ = positive edge.
+#     Breakeven for a 1:2 trade is 33% - so 35%+ = positive edge.
 # ----------------------------------------------------------------
-PROB_MIN = 0.40          # minimum P(hit 2R before SL) to allow a signal
+PROB_MIN = 0.35          # minimum P(hit 2R before SL) to allow a signal
 PROB_LOOKBACK = 60       # 2m candles replayed to measure it (needs long
                          # horizons so wide stops still get decided)
 
@@ -104,16 +104,18 @@ MIN_GRADE = "B"               # "A+" | "A" | "B" | "C"  (C = max signals)
 # ----------------------------------------------------------------
 # 6b) STRONG SETUPS ONLY  (recommended if 1:1 signals keep stopping out)
 #     When ON a signal must ALSO pass every checklist item - not just
-#     score points:  news OK (no warning)  +  daily cross not against
-#     the side  +  the coin's own daily trend agreeing  +  a daily dip
-#     (longs) / top (shorts) so we never chase  +  cross fresher than
-#     STRONG_MAX_AGE candles  +  grade A or better.
+#     score points:  news not HALT (WARNING is allowed)  +  daily cross
+#     not against the side  +  the coin's own daily trend agreeing  +
+#     daily NOT stretched:  long needs RSI <= STRONG_RSI_LONG and the
+#     band not at the upper edge, short needs RSI >= STRONG_RSI_SHORT
+#     and the band not at the lower edge (never chase an extended
+#     daily)  +  cross fresher than STRONG_MAX_AGE candles  +  grade A.
 #     Result: far fewer signals, but only high-conviction setups.
 # ----------------------------------------------------------------
 STRONG_ONLY = False           # app Settings has the tick-box
 STRONG_MAX_AGE = 3            # max 2m-candle age of the cross
-STRONG_RSI_LONG = 45          # LONG: pullback means RSI <= this (or BB low)
-STRONG_RSI_SHORT = 55         # SHORT: stretched means RSI >= this (or BB high)
+STRONG_RSI_LONG = 60          # LONG: daily RSI above this = too hot to buy
+STRONG_RSI_SHORT = 40         # SHORT: daily RSI below this = too cold to sell
 SIGNAL_COOLDOWN_MIN = 30      # no repeat signal for same coin+side in this time
 
 # ----------------------------------------------------------------

@@ -55,7 +55,7 @@ jobs:
           # is intentionally NOT committed) - keep these in sync:
           MIN_GRADE: "B"
           STRONG_ONLY: "1"
-          PROB_MIN: "0.4"
+          PROB_MIN: "0.35"
         run: python gh_runner.py
 
       - name: Publish dashboard

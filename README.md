@@ -57,16 +57,17 @@ Agar 1:1 signals aksar SL kha rahe hon to **Settings → "STRONG setups only"**
 tick karein. Tab ek signal **sirf tab** jaata jab **HAR checklist item agree
 kare** (sirf score points nahi):
 
-1. News = **OK** (WARNING bhi reject)
+1. News = **HALT nahi** (WARNING chalta hai — sirf HALT blocks)
 2. Daily cross **side ke khilaf nahi** (DEATH blocks longs / GOLDEN blocks shorts)
 3. Coin ka **apna daily trend agree** (long = EMA120 upar, short = neeche)
-4. **Daily dip/top zone** — long sirf dip par (RSI ≤ 45 ya BB low band neeche),
-   short sirf top par (RSI ≥ 55 ya BB upar) → **kabhi chase nahi**
+4. **Daily stretched nahi** — long sirf tab jab daily RSI ≤ **60** ho aur BB
+   upper band par na ho; short sirf tab jab RSI ≥ **40** ho aur BB lower
+   band par na ho → **kabhi chase nahi**
 5. Cross **fresh** (≤ 3 2-minute candles = 6 minute)
 6. Grade **A ya A+**
 
-Result: signals **bahut kam**, lekin sirf high-conviction setups. Watchlist
-bhi wahi reason dikhata hai (`strong: needs a daily dip ...`) taake pata
+Result: signals **kam**, lekin sirf high-conviction setups. Watchlist
+bhi wahi reason dikhata hai (`strong: daily too hot to buy ...`) taake pata
 chale signal kyun nahi aaya.
 
 *(Non-crypto has no dominance / money-flow / fear&greed checks, so its
@@ -77,21 +78,21 @@ rungs are 2 points lower — same "how much agrees" meaning.)*
 Har signal **TP1 = 2R** (risk ka 2 guna) par pehla target deta hai — matlab
 minimum reward:hamesha **1:2** (TP2 = 3R, TP3 = 5R runner).
 
-Aur usse pehle ek **probability gate**: system pichle **30 two-minute
+Aur usse pehle ek **probability gate**: system pichle **60 two-minute
 candles ko replay** karke napaata hai ke price ne entry se **2R tak SL se
 pehle** pohancha kitni baar. Agar yeh measured probability `PROB_MIN`
-(config.py, default **40%**) se kam ho to **signal hi nahi banta** —
+(config.py, default **35%**) se kam ho to **signal hi nahi banta** —
 watchlist/status mein reason dikhta hai:
 
 ```
-1:2 probability 31% < 40% (needs 2R before SL)
+1:2 probability 31% < 35% (needs 2R before SL)
 ```
 
-- 1:2 trade ka breakeven = **33%** — 40%+ matlab positive edge fees se pehle
-- Checklist mein row: `✅ 1:2 probability: 44% to hit TP1 (2R) before SL - need ≥40%`
+- 1:2 trade ka breakeven = **33%** — 35%+ matlab positive edge fees se pehle
+- Checklist mein row: `✅ 1:2 probability: 44% to hit TP1 (2R) before SL - need ≥35%`
 - Telegram/message mein `P(1:2): 44%`, signals.log mein `p=44%`
 - Stricter chahiye? `config.py → PROB_MIN = 0.50` (0.60 = bohot strict)
-- `_winrate.py` report P12 column + "P(1:2) >= 40%" summary dikhata hai —
+- `_winrate.py` report P12 column + "P(1:2) >= 35%" summary dikhata hai —
   waqt ke saath khud check karein ke probability high wale signals jeet rahe ya nahi
 
 ### Hard blocks (no signal at all)

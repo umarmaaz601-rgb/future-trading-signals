@@ -167,10 +167,12 @@ def main():
          lambda r: r.get("raw") is not None and r["raw"] > config.MAX_STOP_PCT)
     show("stop had full room (raw<=0.6%)",
          lambda r: r.get("raw") is not None and r["raw"] <= config.MAX_STOP_PCT)
-    show("P(1:2) >= 40% (filter passes)",
-         lambda r: r.get("prob") is not None and r["prob"] >= 0.40)
-    show("P(1:2) < 40% (would be blocked)",
-         lambda r: r.get("prob") is not None and r["prob"] < 0.40)
+    show(f"P(1:2) >= {config.PROB_MIN:.0%} (filter passes)",
+         lambda r: r.get("prob") is not None
+                   and r["prob"] >= config.PROB_MIN)
+    show(f"P(1:2) < {config.PROB_MIN:.0%} (would be blocked)",
+         lambda r: r.get("prob") is not None
+                   and r["prob"] < config.PROB_MIN)
     print("=" * 96)
 
 

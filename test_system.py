@@ -342,10 +342,13 @@ def test_strong_mode():
     ok &= check("clean pullback LONG passes",
                 strategy.strong_reason(ctx, coin, fresh, "LONG") == "")
 
-    # 1) news must be clean
+    # 1) news: WARNING is allowed now, HALT still blocks
     ctx.news = NewsReport(status="WARNING", note="sec lawsuit")
     r = strategy.strong_reason(ctx, coin, fresh, "LONG")
-    ok &= check("news WARNING blocks strong", "news" in r, f"-> {r}")
+    ok &= check("news WARNING no longer blocks strong", r == "", f"-> {r}")
+    ctx.news = NewsReport(status="HALT", note="exchange hacked")
+    r = strategy.strong_reason(ctx, coin, fresh, "LONG")
+    ok &= check("news HALT blocks strong", "news" in r, f"-> {r}")
     ctx.news = NewsReport(status="OK", note="clean")
 
     # 2) cross direction must not oppose the side
@@ -364,16 +367,16 @@ def test_strong_mode():
     ok &= check("coin below EMA120 blocks strong longs", "EMA120" in r,
                 f"-> {r}")
 
-    # 4) never chase: longs need a dip, shorts need a top
+    # 4) never chase: an extended daily blocks the other side
     hot = BtcRegime(price=2.4, ema120=1.8, above_ema120=True,
                     cross="GOLDEN", rsi=78, bb_state="ABOVE_UPPER", ok=True)
     r = strategy.strong_reason(ctx, hot, fresh, "LONG")
-    ok &= check("top zone blocks strong longs", "dip" in r, f"-> {r}")
+    ok &= check("top zone blocks strong longs", "too hot" in r, f"-> {r}")
     cool = BtcRegime(price=1.5, ema120=1.8, above_ema120=False,
                      cross="DEATH", rsi=35, bb_state="INSIDE", ok=True)
-    ctx.btc.cross = "DEATH"                   # isolate the dip/top rule
+    ctx.btc.cross = "DEATH"                   # isolate the not-stretched rule
     r = strategy.strong_reason(ctx, cool, fresh, "SHORT")
-    ok &= check("no top blocks strong shorts", "top" in r, f"-> {r}")
+    ok &= check("no top blocks strong shorts", "too cold" in r, f"-> {r}")
     ctx.btc.cross = "GOLDEN"
 
     # 5) fresh cross only

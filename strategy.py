@@ -217,12 +217,15 @@ def strong_reason(ctx, coin_reg, trig=None, side="LONG"):
     """
     STRONG mode: EVERY checklist item must agree - not just score points.
     Returns '' when this side is a strong setup, else why it is not:
-      news OK  +  cross not against the side  +  coin's own daily trend
-      agreeing  +  a daily dip (longs) / top (shorts) so we never chase
-      +  fresh cross (only when a live trigger is given)  +  grade A.
+      news not HALT (WARNING allowed)  +  cross not against the side
+      +  coin's own daily trend agreeing  +  daily not stretched (longs:
+      RSI <= STRONG_RSI_LONG and band not at the upper edge; shorts:
+      RSI >= STRONG_RSI_SHORT and band not at the lower edge) so we
+      never chase  +  fresh cross (only when a live trigger is given)
+      +  grade A.
     """
-    if ctx.news.status != "OK":
-        return f"strong: news is {ctx.news.status} (needs OK)"
+    if ctx.news.status == "HALT":
+        return "strong: news is HALT (cannot trade)"
     cross = _bench_cross(ctx)
     if side == "LONG" and cross == "DEATH":
         return "strong: DEATH cross blocks longs"
@@ -233,16 +236,16 @@ def strong_reason(ctx, coin_reg, trig=None, side="LONG"):
             return "strong: coin below its daily EMA120 (trend must agree)"
         if side == "SHORT" and coin_reg.above_ema120:
             return "strong: coin above its daily EMA120 (trend must agree)"
-        if side == "LONG" and not (coin_reg.bb_state == "BELOW_LOWER" or
-                                   coin_reg.rsi <= config.STRONG_RSI_LONG):
-            return (f"strong: needs a daily dip to buy "
-                    f"(RSI {coin_reg.rsi:.0f} > {config.STRONG_RSI_LONG}, "
-                    f"BB {coin_reg.bb_state})")
-        if side == "SHORT" and not (coin_reg.bb_state == "ABOVE_UPPER" or
-                                    coin_reg.rsi >= config.STRONG_RSI_SHORT):
-            return (f"strong: needs a daily top to sell "
-                    f"(RSI {coin_reg.rsi:.0f} < {config.STRONG_RSI_SHORT}, "
-                    f"BB {coin_reg.bb_state})")
+        if side == "LONG" and (coin_reg.bb_state == "ABOVE_UPPER" or
+                               coin_reg.rsi > config.STRONG_RSI_LONG):
+            return (f"strong: daily too hot to buy "
+                    f"(RSI {coin_reg.rsi:.0f} vs max "
+                    f"{config.STRONG_RSI_LONG}, BB {coin_reg.bb_state})")
+        if side == "SHORT" and (coin_reg.bb_state == "BELOW_LOWER" or
+                                coin_reg.rsi < config.STRONG_RSI_SHORT):
+            return (f"strong: daily too cold to sell "
+                    f"(RSI {coin_reg.rsi:.0f} vs min "
+                    f"{config.STRONG_RSI_SHORT}, BB {coin_reg.bb_state})")
     if trig is not None and trig.fired and trig.age > config.STRONG_MAX_AGE:
         return f"strong: cross too old (age {trig.age} > {config.STRONG_MAX_AGE})"
     return ""
