@@ -100,13 +100,14 @@ def _ctx_summary(scanner):
         out["sentiment"] = {"value": c.sentiment.value,
                             "label": c.sentiment.label}
     sessions = {"crypto": "open (24/7)"}
-    for cls in ("forex", "metal", "stock"):
-        cc = (scanner.class_ctx or {}).get(cls)
-        if cc is None:
-            sessions[cls] = "n/a"
-        else:
-            sessions[cls] = ("open" if getattr(cc, "session_open", True)
-                             else (getattr(cc, "session_note", "") or "closed"))
+    try:
+        # ask the session gate itself - class contexts keep the default
+        from yf_data import session_status
+        for cls in ("forex", "metal", "stock"):
+            ok, note = session_status(cls)
+            sessions[cls] = "open" if ok else (note or "closed")
+    except Exception as exc:                     # pragma: no cover
+        sessions["error"] = str(exc)[:60]
     out["sessions"] = sessions
     return out
 
