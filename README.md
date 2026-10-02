@@ -60,9 +60,9 @@ kare** (sirf score points nahi):
 1. News = **HALT nahi** (WARNING chalta hai — sirf HALT blocks)
 2. Daily cross **side ke khilaf nahi** (DEATH blocks longs / GOLDEN blocks shorts)
 3. Coin ka **apna daily trend agree** (long = EMA120 upar, short = neeche)
-4. **Daily stretched nahi** — long sirf tab jab daily RSI ≤ **60** ho aur BB
-   upper band par na ho; short sirf tab jab RSI ≥ **40** ho aur BB lower
-   band par na ho → **kabhi chase nahi**
+4. **Daily extremes avoid** — long sirf tab jab daily RSI ≤ **70** ho aur BB
+   upper band par na ho; short sirf tab jab RSI ≥ **30** ho aur BB lower
+   band par na ho → **kabhi overbought/oversold par chase nahi**
 5. Cross **fresh** (≤ 3 2-minute candles = 6 minute)
 6. Grade **A ya A+**
 

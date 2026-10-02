@@ -373,7 +373,7 @@ def test_strong_mode():
     r = strategy.strong_reason(ctx, hot, fresh, "LONG")
     ok &= check("top zone blocks strong longs", "too hot" in r, f"-> {r}")
     cool = BtcRegime(price=1.5, ema120=1.8, above_ema120=False,
-                     cross="DEATH", rsi=35, bb_state="INSIDE", ok=True)
+                     cross="DEATH", rsi=25, bb_state="INSIDE", ok=True)
     ctx.btc.cross = "DEATH"                   # isolate the not-stretched rule
     r = strategy.strong_reason(ctx, cool, fresh, "SHORT")
     ok &= check("no top blocks strong shorts", "too cold" in r, f"-> {r}")

@@ -106,16 +106,17 @@ MIN_GRADE = "B"               # "A+" | "A" | "B" | "C"  (C = max signals)
 #     When ON a signal must ALSO pass every checklist item - not just
 #     score points:  news not HALT (WARNING is allowed)  +  daily cross
 #     not against the side  +  the coin's own daily trend agreeing  +
-#     daily NOT stretched:  long needs RSI <= STRONG_RSI_LONG and the
-#     band not at the upper edge, short needs RSI >= STRONG_RSI_SHORT
-#     and the band not at the lower edge (never chase an extended
-#     daily)  +  cross fresher than STRONG_MAX_AGE candles  +  grade A.
+#     daily NOT at the classic extremes:  long blocked only above
+#     STRONG_RSI_LONG (70) or at the upper band, short blocked only
+#     below STRONG_RSI_SHORT (30) or at the lower band (never chase
+#     overbought/oversold)  +  cross fresher than STRONG_MAX_AGE
+#     candles  +  grade A.
 #     Result: far fewer signals, but only high-conviction setups.
 # ----------------------------------------------------------------
 STRONG_ONLY = False           # app Settings has the tick-box
 STRONG_MAX_AGE = 3            # max 2m-candle age of the cross
-STRONG_RSI_LONG = 60          # LONG: daily RSI above this = too hot to buy
-STRONG_RSI_SHORT = 40         # SHORT: daily RSI below this = too cold to sell
+STRONG_RSI_LONG = 70          # LONG: daily RSI above this = overbought
+STRONG_RSI_SHORT = 30         # SHORT: daily RSI below this = oversold
 SIGNAL_COOLDOWN_MIN = 30      # no repeat signal for same coin+side in this time
 
 # ----------------------------------------------------------------
