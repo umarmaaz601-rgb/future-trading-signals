@@ -1416,6 +1416,49 @@ class SignalApp(tk.Tk):
         self.after(800, self.destroy)
 
 
+# ---------------------------------------------------------------- cloud
+def _cloud_heartbeat(app, first_delay=60, interval=300):
+    """
+    Kick the GitHub Actions scanner (scan.yml) every `interval` seconds.
+
+    The phone app only sees signals the CLOUD run publishes, and GitHub's
+    cron schedule has proven unreliable (most 5-minute ticks never fired),
+    so the desktop - which is on 24/7 anyway - triggers the workflow as a
+    backup heartbeat.  Errors are logged to the app LOG pane; the real
+    cron still runs whenever GitHub honours it.
+    """
+    import shutil
+    import subprocess
+    gh = shutil.which("gh")
+    if not gh:
+        app.q.put(("log", "[cloud] gh CLI not found - cloud heartbeat OFF "
+                          "(GitHub cron is the only trigger)"))
+        return
+    time.sleep(first_delay)
+    app.q.put(("log", f"[cloud] heartbeat on - triggering cloud scan every "
+                      f"{interval // 60} min (phone feed)"))
+    fails = 0
+    while True:
+        try:
+            r = subprocess.run([gh, "workflow", "run", "scan.yml",
+                                "--ref", "main"],
+                               capture_output=True, text=True, timeout=30)
+            if r.returncode == 0:
+                if fails:
+                    fails = 0
+                    app.q.put(("log", "[cloud] heartbeat trigger OK again"))
+            else:
+                fails += 1
+                if fails <= 3:
+                    app.q.put(("log", "[cloud] heartbeat trigger failed: "
+                                      + (r.stderr or "").strip()[:120]))
+        except Exception as e:
+            fails += 1
+            if fails <= 3:
+                app.q.put(("log", f"[cloud] heartbeat error: {e}"))
+        time.sleep(interval)
+
+
 def main():
     _redirect_output()
     smoke = "--smoke" in sys.argv
@@ -1431,6 +1474,10 @@ def main():
         app = SignalApp(smoke=smoke)
         if smoke:
             app.run_smoke()
+        else:
+            # keep the phone feed alive even when GitHub's cron skips
+            threading.Thread(target=_cloud_heartbeat, args=(app,),
+                             daemon=True).start()
         app.mainloop()
     except SystemExit:
         raise
