@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Future Trading Signals</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --green:#3fb950; --red:#f85149; --amber:#e3b341;
+    --blue:#58a6ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0; background:var(--bg); color:var(--fg);
+       font:15px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;
+       padding-bottom:40px}
+  header{position:sticky; top:0; z-index:5; background:#0d1117f2;
+         backdrop-filter:blur(6px); border-bottom:1px solid var(--line);
+         padding:10px 14px; display:flex; align-items:center; gap:8px}
+  header h1{font-size:16px; margin:0; flex:1}
+  .sub{color:var(--muted); font-size:11px; padding:6px 14px 0}
+  .badges{padding:8px 14px 0; display:flex; flex-wrap:wrap; gap:6px}
+  .badge{font-size:11px; border:1px solid var(--line); border-radius:20px;
+         padding:3px 10px; color:var(--muted)}
+  .badge.on{border-color:var(--amber); color:var(--amber)}
+  .ctx{display:flex; gap:8px; overflow-x:auto; padding:10px 14px 0;
+       scrollbar-width:none}
+  .ctx::-webkit-scrollbar{display:none}
+  .ctx .k{min-width:130px; background:var(--card); border:1px solid var(--line);
+          border-radius:10px; padding:8px 10px}
+  .k b{display:block; font-size:11px; color:var(--muted); font-weight:600}
+  .k span{font-size:13px}
+  h2{font-size:12px; letter-spacing:.08em; color:var(--muted);
+     margin:18px 14px 8px; text-transform:uppercase}
+  .sig{margin:0 14px 10px; background:var(--card); border:1px solid var(--line);
+       border-left:5px solid var(--green); border-radius:10px; padding:10px 12px}
+  .sig.SHORT{border-left-color:var(--red)}
+  .sig .top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .sig .sym{font-weight:700; font-size:16px}
+  .side{font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px;
+        background:#1a7f37; color:#fff}
+  .SHORT .side{background:#a40e26}
+  .chip{font-size:11px; border-radius:5px; padding:2px 7px;
+        border:1px solid var(--line); color:var(--muted)}
+  .chip.a{border-color:var(--green); color:var(--green)}
+  .chip.b{border-color:var(--blue); color:var(--blue)}
+  .chip.p{border-color:var(--amber); color:var(--amber)}
+  .mkt{font-size:10px; color:var(--muted); text-transform:uppercase}
+  .lvls{display:grid; grid-template-columns:repeat(5,1fr); gap:6px;
+        margin-top:9px; font-size:11px}
+  .lvls div{background:#0d1117; border:1px solid var(--line); border-radius:6px;
+            padding:5px 4px; text-align:center}
+  .lvls b{display:block; color:var(--muted); font-size:9px; font-weight:600}
+  .sig .foot{display:flex; justify-content:space-between; margin-top:8px;
+             font-size:11px; color:var(--muted)}
+  .ok{color:var(--green)} .no{color:var(--amber)}
+  .wrow{display:flex; gap:8px; align-items:center; margin:0 14px 6px;
+        background:var(--card); border:1px solid var(--line); border-radius:8px;
+        padding:8px 10px; font-size:13px}
+  .wrow .sc{margin-left:auto; font-weight:700}
+  .st{color:var(--muted); font-size:11px; flex-basis:100%}
+  .empty{color:var(--muted); margin:0 14px; font-size:13px;
+         border:1px dashed var(--line); border-radius:10px; padding:14px;
+         text-align:center}
+  .loading{color:var(--muted); text-align:center; padding:30px}
+  button{background:var(--card); color:var(--fg); border:1px solid var(--line);
+         border-radius:8px; padding:6px 12px; font-size:13px}
+  footer{color:var(--muted); font-size:11px; text-align:center;
+         margin-top:24px; padding:0 20px}
+  .err{background:#3d1d1f; border:1px solid var(--red); color:#ffb4ac;
+       margin:10px 14px; border-radius:8px; padding:8px 12px; font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📈 Future Trading Signals</h1>
+  <button id="refresh" onclick="load(true)">↻</button>
+</header>
+<div class="sub" id="updated">loading…</div>
+<div class="badges" id="badges"></div>
+<div class="ctx" id="ctx"></div>
+
+<h2>Signals</h2>
+<div id="signals" class="loading">waiting for data…</div>
+
+<h2>Watchlist</h2>
+<div id="watch"></div>
+
+<footer>
+  Mobile dashboard • updates every 5 minutes with the cloud scanner.<br>
+  Add to Home Screen (browser menu) for an app icon.<br>
+  Push alerts → Telegram bot. Not financial advice.
+</footer>
+
+<script>
+let timer = null;
+
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function num(x, d){ const n = Number(x);
+  return isFinite(n) && x !== null && x !== "" ? n.toFixed(d ?? 4) : "—"; }
+function ago(epoch){
+  if(!epoch) return "";
+  const s = Math.max(0, Date.now()/1000 - epoch);
+  if(s < 90) return Math.round(s) + "s ago";
+  if(s < 5400) return Math.round(s/60) + "m ago";
+  if(s < 172800) return Math.round(s/3600) + "h ago";
+  return Math.round(s/86400) + "d ago";
+}
+function gradeChip(g){
+  const cls = (g === "A+" || g === "A") ? "a" : (g === "B" ? "b" : "");
+  return `<span class="chip ${cls}">${esc(g)}</span>`;
+}
+
+function render(d){
+  document.getElementById("updated").innerHTML =
+    `updated <b>${esc(d.updated)}</b> · ${ago(d.epoch)} · scan ${d.took_sec}s` +
+    ` · ${d.stats?.signals_new ?? 0} new / ${d.stats?.scanned ?? 0} symbols`;
+
+  const f = d.filters || {};
+  document.getElementById("badges").innerHTML =
+    `<span class="badge">grade ${esc(f.min_grade)}+</span>` +
+    `<span class="badge ${f.strong ? "on" : ""}">STRONG ${f.strong ? "ON" : "off"}</span>` +
+    `<span class="badge ${f.prob_min ? "on" : ""}">1:2 ≥ ${(100*(f.prob_min||0)).toFixed(0)}%</span>` +
+    `<span class="badge">${esc(f.tp1_r || 2)}R first target</span>` +
+    `<span class="badge">${esc(f.leverage || 50)}x max</span>`;
+
+  const c = d.context || {};
+  let ctx = "";
+  if(c.btc) ctx += `<div class="k"><b>BTC</b><span>${num(c.btc.price,0)} · ${c.btc.above ? "above" : "below"} EMA120 · ${esc(c.btc.cross)}</span></div>`;
+  if(c.news) ctx += `<div class="k"><b>NEWS</b><span>${esc(c.news.status)}</span></div>`;
+  if(c.flow) ctx += `<div class="k"><b>MONEY FLOW</b><span>${esc(c.flow.money_flow)}</span></div>`;
+  if(c.sentiment && c.sentiment.value >= 0) ctx += `<div class="k"><b>FEAR &amp; GREED</b><span>${c.sentiment.value} ${esc(c.sentiment.label)}</span></div>`;
+  if(c.sessions) for(const [k,v] of Object.entries(c.sessions))
+    ctx += `<div class="k"><b>${k.toUpperCase()}</b><span>${esc(v)}</span></div>`;
+  document.getElementById("ctx").innerHTML = ctx;
+
+  const sigs = d.signals || [];
+  const box = document.getElementById("signals");
+  if(!sigs.length){
+    box.className = "";
+    box.innerHTML = `<div class="empty">No signals yet.<br>
+      The cloud scanner pushes one every time the checklist passes.</div>`;
+  } else {
+    box.className = "";
+    box.innerHTML = sigs.map(s => {
+      const t = (s.take_profits || []).map(num).join(" ");
+      const prob = (s.prob !== null && s.prob !== undefined && s.prob >= 0)
+        ? `<span class="chip p">P(1:2) ${(100*s.prob).toFixed(0)}%</span>` : "";
+      const tg = s.telegram_ok === undefined ? ""
+        : `<span class="${s.telegram_ok ? "ok" : "no"}">${s.telegram_ok ? "✓ telegram" : "telegram n/a"}</span>`;
+      const time = s.ts ? new Date(s.ts*1000).toTimeString().slice(0,5) : "";
+      const mkt = s.cls && s.cls !== "crypto" ? `<span class="mkt">${esc(s.cls)}</span>` : "";
+      return `<div class="sig ${esc(s.side)}">
+        <div class="top">
+          <span class="sym">${esc(s.symbol)}</span>
+          <span class="side">${esc(s.side)}</span>
+          ${gradeChip(s.grade)}<span class="chip">score ${s.score}</span>
+          ${prob}${mkt}
+        </div>
+        <div class="lvls">
+          <div><b>ENTRY</b>${num(s.entry)}</div>
+          <div><b>STOP</b>${num(s.stop_loss)}</div>
+          <div><b>TP1</b>${num((s.take_profits||[])[0])}</div>
+          <div><b>TP2</b>${num((s.take_profits||[])[1])}</div>
+          <div><b>TP3</b>${num((s.take_profits||[])[2])}</div>
+        </div>
+        <div class="foot"><span>${time} · ${esc(s.leverage)}x · risk ${num(s.stop_pct,2)}%</span>${tg}</div>
+      </div>`;
+    }).join("");
+  }
+
+  const w = (d.watch || []).slice(0, 25);
+  document.getElementById("watch").innerHTML = w.length
+    ? w.map(r => `<div class="wrow">
+        <b>${esc(r.symbol)}</b>
+        <span class="${r.side === "SHORT" ? "no" : "ok"}">${esc(r.side)}</span>
+        ${gradeChip(r.grade)}
+        <span class="sc">${r.score}</span>
+        <span class="st">${esc(r.status || "")}</span>
+      </div>`).join("")
+    : `<div class="empty">Nothing close to a signal right now.</div>`;
+}
+
+async function load(manual){
+  try{
+    const r = await fetch("data.json?_=" + Date.now(), {cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    render(await r.json());
+    document.getElementById("updated").classList.remove("no");
+  }catch(e){
+    document.getElementById("updated").innerHTML =
+      `<span class="no">update failed (${esc(e.message)}) — retrying…</span>`;
+  }
+  if(manual && timer) { clearInterval(timer); timer = setInterval(load, 60000); }
+}
+load();
+timer = setInterval(load, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+name: build mobile APK
+
+# Builds a small Android app (WebView around the mobile dashboard) and
+# attaches the APK to the "apk-latest" release so you can install it
+# straight from your phone.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Assemble debug APK
+        run: gradle -p android assembleDebug
+
+      - name: Publish APK to the apk-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk FutureSignals.apk
+          if gh release view apk-latest >/dev/null 2>&1; then
+            gh release upload apk-latest FutureSignals.apk --clobber
+          else
+            gh release create apk-latest FutureSignals.apk \
+              --title "Signal App APK (debug)" \
+              --notes "Install on Android: download FutureSignals.apk, open it, allow 'install from this source'. The app shows the live signal dashboard; push alerts come from the Telegram bot."
+          fi
+          echo "APK ready: $(gh release view apk-latest --json url -q .url)"

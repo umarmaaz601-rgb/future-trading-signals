@@ -1,0 +1,51 @@
+name: 24/7 scanner
+
+# Runs the full checklist scan every 5 minutes on GitHub's servers,
+# sends Telegram alerts and refreshes dashboard/data.json.
+# State (cooldowns) + signals.log + data.json are carried between runs
+# with the actions cache.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: signal-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore state (cooldowns, history, dashboard data)
+        uses: actions/cache@v4
+        with:
+          path: |
+            state.json
+            signals.log
+            dashboard/data.json
+          key: scan-state-${{ github.run_id }}
+          restore-keys: scan-state-
+
+      - name: One full scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Cloud copy of the desktop app's Settings (app_settings.json
+          # is intentionally NOT committed) - keep these in sync:
+          MIN_GRADE: "B"
+          STRONG_ONLY: "1"
+          PROB_MIN: "0.4"
+        run: python gh_runner.py

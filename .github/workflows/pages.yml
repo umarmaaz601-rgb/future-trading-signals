@@ -1,0 +1,42 @@
+name: mobile dashboard
+
+# Rebuilds the phone dashboard (GitHub Pages) every 10 minutes from the
+# data.json the scanner run produced.  Deploying from a separate,
+# slower workflow keeps us inside GitHub Pages' deployment rate limits.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore latest scanner data
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            state.json
+            signals.log
+            dashboard/data.json
+          key: scan-state-${{ github.run_id }}
+          restore-keys: scan-state-
+
+      - name: Publish dashboard
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: Deploy to Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
