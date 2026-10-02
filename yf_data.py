@@ -48,7 +48,9 @@ def yahoo_ticker(sym):
         return f"{sym}=X"
     if sym in config.METALS:
         # Yahoo has no XAUUSD=X spot - use CME futures (same price, ~23h)
-        return {"XAUUSD": "GC=F", "XAGUSD": "SI=F"}.get(sym, f"{sym}=X")
+        return {"XAUUSD": "GC=F", "XAGUSD": "SI=F", "XPTUSD": "PL=F",
+                "XPDUSD": "PA=F", "OILUSD": "CL=F",
+                "GASUSD": "NG=F"}.get(sym, f"{sym}=X")
     if sym == "DXY":
         return "DX-Y.NYB"
     return sym                                  # stocks / ETFs

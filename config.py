@@ -37,7 +37,8 @@ HTTP_TIMEOUT = 15
 #    MIN_QUOTE_VOLUME_24H.  Set MAX_COINS = 0 for no cap.
 # ----------------------------------------------------------------
 QUOTE = "USDT"
-MIN_QUOTE_VOLUME_24H = 5_000_000     # ignore coins with less than $5M daily volume
+MIN_QUOTE_VOLUME_24H = 1_000_000     # whole market: every coin with $1M+ 24h
+                                     # volume (247 pairs; $5M gave only ~87)
 MAX_COINS = 0                         # 0 = ALL coins that pass the volume filter
 # Stablecoins / non-crypto tokens we never trade
 EXCLUDE_BASES = {
@@ -181,17 +182,36 @@ ENABLE_METAL = True           # gold & silver
 ENABLE_STOCKS = True
 
 FOREX_PAIRS = [
+    # majors
     "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD",
+    # crosses
+    "EURJPY", "GBPJPY", "AUDJPY", "NZDJPY", "CHFJPY",
+    "EURGBP", "EURCHF", "EURAUD", "EURCAD",
+    "GBPAUD", "GBPCAD", "AUDCAD", "AUDNZD", "NZDCAD",
+    # liquid exotics
+    "USDMXN", "USDNOK", "USDSEK", "USDTRY", "USDZAR", "USDSGD",
 ]
 # pairs quoted USD-first move WITH the dollar index (no sign flip)
-USD_BASE_PAIRS = {"USDJPY", "USDCAD", "USDCHF"}
+USD_BASE_PAIRS = {"USDJPY", "USDCAD", "USDCHF", "USDMXN", "USDNOK",
+                  "USDSEK", "USDTRY", "USDZAR", "USDSGD"}
 
-METALS = ["XAUUSD", "XAGUSD"]
+# gold, silver, platinum, palladium + oil & natural gas (same 24h globex
+# rhythm, all inverse-ish to the dollar -> same DXY benchmark)
+METALS = ["XAUUSD", "XAGUSD", "XPTUSD", "XPDUSD", "OILUSD", "GASUSD"]
 
 STOCKS = [
-    "SPY", "QQQ", "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META",
+    # index ETFs
+    "SPY", "QQQ",
+    # high-beta tech / crypto-adjacent
+    "TSLA", "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "META",
     "AMD", "NFLX", "COIN", "MSTR", "PLTR", "SMCI", "ARM", "AVGO", "INTC",
     "BABA", "RIVN",
+    # liquid S&P-100 style names (validated on Yahoo)
+    "GOOG", "ADBE", "ORCL", "CRM", "CSCO", "QCOM", "TXN", "AMAT", "MU",
+    "LRCX", "KLAC", "IBM", "UBER", "ABNB", "SNAP", "F", "GM", "BA", "GS",
+    "MS", "JPM", "BAC", "WMT", "COST", "KO", "PEP", "XOM", "CVX", "UNH",
+    "GILD", "MRK", "PFE", "ABBV", "JNJ", "CAT", "GE", "HON", "DIS", "NKE",
+    "SBUX", "TGT", "LCID", "SOFI",
 ]
 
 FOREX_METAL_BENCH = "DXY"     # dollar index = market layer for forex/gold
