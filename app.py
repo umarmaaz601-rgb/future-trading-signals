@@ -215,6 +215,12 @@ def _crash_log():
         pass
 
 
+# written when the user really quits - keep_running.py (the watchdog)
+# reads it and knows it must NOT restart the app
+QUIT_FLAG = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "_app_quit.flag")
+
+
 # =============================================================== APP
 class SignalApp(tk.Tk):
     def __init__(self, smoke=False):
@@ -233,6 +239,9 @@ class SignalApp(tk.Tk):
         self.scanner = None
         self.sound_on = True
         self._ctx_seen = False
+        self._ctx = None                # last live context (web checklist)
+        self._logbuf = []               # ring buffer for the web console
+        self._snap = {}                 # JSON snapshot served to the UI
 
         # signal storage (newest first)
         self.signals = {"LONG": [], "SHORT": []}
@@ -265,6 +274,15 @@ class SignalApp(tk.Tk):
         self.focus_force()
         self.attributes("-topmost", True)
         self.after(2500, lambda: self.attributes("-topmost", False))
+
+        # ---- professional interface: the Tk window stays hidden; a tiny
+        # status bar (keeps the window title for the desktop shortcut) and
+        # the dashboard app-window carry the whole UI.
+        if not smoke:
+            _start_ui_server(self)
+            self.withdraw()
+            self.after(700, self._build_mini)
+            self.after(1400, _open_app_window)
 
     # =================================================== UI
     def _build(self):
@@ -931,6 +949,7 @@ class SignalApp(tk.Tk):
     # =================================================== context / cards
     def _update_context(self, ctx):
         self._ctx_seen = True
+        self._ctx = ctx
         f, s, b, n = ctx.flow, ctx.sentiment, ctx.btc, ctx.news
 
         # banner
@@ -1013,8 +1032,12 @@ class SignalApp(tk.Tk):
     # =================================================== log / status
     def _append_log(self, text, tag=None):
         stamp = time.strftime("%H:%M:%S")
+        lines = str(text).splitlines() or [""]
+        self._logbuf.extend({"t": stamp, "m": ln} for ln in lines)
+        if len(self._logbuf) > 400:
+            del self._logbuf[:-300]
         self.txt_log.configure(state="normal")
-        for line in str(text).splitlines() or [""]:
+        for line in lines:
             self.txt_log.insert("end", f"{stamp}  {line}\n", tag or ())
         if int(self.txt_log.index("end-1c").split(".")[0]) > 900:
             self.txt_log.delete("1.0", "400.0")
@@ -1023,6 +1046,8 @@ class SignalApp(tk.Tk):
 
     def _set_status(self, text, colour=MUTED):
         self.lbl_status.configure(text=f"● {text}", foreground=colour)
+        if getattr(self, "mini_status", None) is not None:
+            self.mini_status.configure(text=f"● {text}", foreground=colour)
 
     def _set_bar(self, text, right=None):
         self.lbl_bar.configure(text=f"  {text}")
@@ -1301,7 +1326,15 @@ class SignalApp(tk.Tk):
                             self._set_bar(f"scanning {done}/{total} coins...")
                     else:
                         self.pbar.configure(value=0)
+                elif kind == "action":
+                    self._do_action(msg[1])
         except queue.Empty:
+            pass
+        # live JSON snapshot for the web UI - built HERE (main thread),
+        # the HTTP thread only ever reads the finished dict
+        try:
+            self._snap = self._snapshot()
+        except Exception:
             pass
         self.after(250, self._poll)
 
@@ -1355,6 +1388,25 @@ class SignalApp(tk.Tk):
                 not messagebox.askyesno("Quit",
                                         "Stop scanning and close the app?"):
             return
+        self._shutdown()
+
+    def _shutdown(self):
+        """Hard exit - the web UI asks for confirmation before calling."""
+        # who asked to quit? (web button, mini-bar X, ...) - keep it on
+        # disk so an unexpected exit can be explained later
+        try:
+            stack = " | ".join(
+                f.strip().splitlines()[-1].strip()
+                for f in traceback.format_stack()[-5:-1])
+            self._append_log(f"quit requested via: {stack}")
+            print(f"[quit] {stack}", flush=True)
+        except Exception:
+            pass
+        try:
+            with open(QUIT_FLAG, "w", encoding="utf-8") as f:
+                f.write(str(time.time()))
+        except OSError:
+            pass
         self.stop_evt.set()
         set_awake(False)
         # make sure the market state is written even if the worker is
@@ -1369,6 +1421,152 @@ class SignalApp(tk.Tk):
         if w and w.is_alive():
             w.join(timeout=2.0)
         self.destroy()
+
+    # =================================================== web UI bridge
+    def _build_mini(self):
+        """Tiny always-on-top status bar - the Tk window itself is hidden,
+        this one keeps the APP_TITLE so the desktop shortcut can find and
+        focus us, and carries OPEN UI / QUIT."""
+        m = tk.Toplevel(self)
+        m.title(APP_TITLE)
+        w, h = 320, 100
+        x = max(10, m.winfo_screenwidth() - w - 26)
+        y = max(10, m.winfo_screenheight() - h - 76)
+        m.geometry(f"{w}x{h}+{x}+{y}")
+        m.configure(bg="#0d1117")
+        m.resizable(False, False)
+        m.attributes("-topmost", True)
+        m.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.mini_status = tk.Label(m, text="● STOPPED", bg="#0d1117",
+                                    fg=MUTED, font=("Segoe UI", 11, "bold"),
+                                    anchor="w")
+        self.mini_status.pack(fill="x", padx=13, pady=(12, 1))
+        tk.Label(m, text="scanner background mein 24/7 chalta rahega",
+                 bg="#0d1117", fg=MUTED, font=("Segoe UI", 8)
+                 ).pack(anchor="w", padx=13)
+        row = tk.Frame(m, bg="#0d1117")
+        row.pack(fill="x", padx=13, pady=(10, 12))
+        ttk.Button(row, text="☰  OPEN UI", style="TButton",
+                   command=lambda: threading.Thread(
+                       target=_open_app_window, daemon=True).start()
+                   ).pack(side="left", expand=True, fill="x", padx=(0, 6))
+        ttk.Button(row, text="⏻  QUIT", style="Stop.TButton",
+                   command=self._on_close
+                   ).pack(side="left", expand=True, fill="x", padx=(6, 0))
+        print("[ui] mini status bar ready", flush=True)
+
+    def _do_action(self, a):
+        """Commands posted by the web UI (always on the Tk thread)."""
+        act = (a or {}).get("act")
+        try:
+            if act == "start":
+                self.start()
+            elif act == "stop":
+                self.stop()
+            elif act == "scan":
+                self.scan_now()
+            elif act == "tgtest":
+                self.telegram_test()
+            elif act == "sound":
+                on = bool(a.get("value"))
+                self.sound_on = on
+                self.sound_var.set(on)
+                self._append_log(f"sound {'ON' if on else 'OFF'}")
+            elif act == "market":
+                self.market_var.set(str(a.get("value", "ALL")))
+            elif act == "quit":
+                self._shutdown()
+        except Exception:
+            self._append_log(traceback.format_exc())
+
+    def _snapshot(self):
+        """Everything the desktop UI renders. Built on the Tk thread every
+        250ms; the HTTP thread only reads the finished dict."""
+        cards = {}
+        for k, c in self.cards.items():
+            cards[k] = {"v": str(c["val"].cget("text")),
+                        "c": str(c["val"].cget("foreground")),
+                        "n": str(c["sub"].cget("text"))}
+        checklist = []
+        ctx = self._ctx
+        if ctx is not None:
+            try:
+                f, s, b, n = ctx.flow, ctx.sentiment, ctx.btc, ctx.news
+                checklist = [
+                    ["1. NEWS", n.status,
+                     "bad" if n.status == "HALT" else
+                     ("warn" if n.status != "OK" else "ok"), n.note or ""],
+                    ["2. BTC DOMINANCE",
+                     f"{f.dominance:.1f}%  {f.dominance_trend}",
+                     "bad" if f.dominance_trend == "RISING" else
+                     ("ok" if f.dominance_trend == "FALLING" else "warn"),
+                     f"delta {f.dominance_delta:+.1f} pts • {f.method}"],
+                    ["3. TOTAL MARKET CAP",
+                     f"${f.total_mcap / 1e12:.2f}T   24h {f.mcap_delta_pct:+.1f}%",
+                     "ok" if f.mcap_delta_pct > config.STABLE_MCAP_PCT
+                     else "bad", ""],
+                    ["4. MONEY FLOW", f.money_flow,
+                     "ok" if f.money_flow in ("ROTATING_IN", "BTC_SEASON")
+                     else ("bad" if f.money_flow in ("LEAVING", "PANIC")
+                           else "warn"), f.note],
+                    ["5. FEAR & GREED",
+                     f"{s.value}  {s.label}" if s.value >= 0 else "no data",
+                     "warn" if 0 <= s.value <= 30 or s.value >= 75 else "ok",
+                     s.note],
+                    ["6. BTC ABOVE EMA120?",
+                     "YES - BULLISH" if b.above_ema120 else "NO - BEARISH",
+                     "ok" if b.above_ema120 else "bad",
+                     f"{b.price:,.0f}  vs  EMA120 {b.ema120:,.0f}"],
+                    ["7. GOLDEN / DEATH CROSS", b.cross,
+                     "ok" if b.cross == "GOLDEN" else
+                     ("bad" if b.cross == "DEATH" else "warn"), ""],
+                    ["8. DAILY BOLLINGER + RSI",
+                     f"RSI {b.rsi:.0f}   {b.bb_state}",
+                     "warn" if b.bb_state != "INSIDE" or b.rsi <= 30 or
+                     b.rsi >= 70 else "ok", ""],
+                ]
+            except Exception:
+                checklist = []
+        sigs = [dict(d) for side in ("LONG", "SHORT")
+                for d in self.signals[side]]
+        for d in sigs:
+            for k in [k for k in d if str(k).startswith("_")]:
+                del d[k]
+        sigs.sort(key=lambda d: -(float(d.get("ts") or 0)))
+        return {
+            "ts": time.time(),
+            "running": bool(self.worker and self.worker.is_alive()),
+            "status": {"text": str(self.lbl_status.cget("text")),
+                       "colour": str(self.lbl_status.cget("foreground"))},
+            "hub": self.hub_name(),
+            "sound": bool(self.sound_on),
+            "market": str(self.market_var.get()),
+            "hb_last": getattr(self, "_hb_last", None),
+            "counts": {"long": len(self.signals["LONG"]),
+                       "short": len(self.signals["SHORT"])},
+            "banner": {"text": str(self.banner.cget("text")),
+                       "bg": str(self.banner.cget("bg")),
+                       "fg": str(self.banner.cget("fg"))},
+            "cards": cards,
+            "checklist": checklist,
+            "signals": sigs,
+            "watch": sorted((dict(w) for w in self.watch.values()),
+                            key=lambda w: -(w.get("score") or -99)),
+            "log": list(self._logbuf[-260:]),
+            "settings": {
+                "balance": config.ACCOUNT_BALANCE,
+                "leverage": config.MAX_LEVERAGE,
+                "risk_pct": config.RISK_PER_TRADE_PCT,
+                "min_vol_m": config.MIN_QUOTE_VOLUME_24H / 1_000_000,
+                "max_coins": config.MAX_COINS,
+                "scan_sec": config.SCAN_INTERVAL_SEC,
+                "min_grade": config.MIN_GRADE,
+                "strong": bool(getattr(config, "STRONG_ONLY", False)),
+                "telegram": config.TELEGRAM_ENABLED,
+                "autostart": config.AUTO_START,
+                "keep_awake": config.KEEP_AWAKE,
+            },
+        }
 
     # =================================================== smoke test
     def run_smoke(self):
@@ -1460,6 +1658,162 @@ def _push_signal_cloud(sig, ok, q):
     threading.Thread(target=run, daemon=True).start()
 
 
+# -------------------------------------------------------- desktop web UI
+_UI_URL = None                      # set once the local server is listening
+
+
+def _json_default(o):
+    if hasattr(o, "item"):          # numpy scalars
+        return o.item()
+    if isinstance(o, (tuple, set)):
+        return list(o)
+    return str(o)
+
+
+def _apply_web_settings(app, p):
+    """Save the Settings tab - no Tk touched, safe on the HTTP thread."""
+    data = load_settings()
+    try:
+        data["balance"] = float(p.get("balance", config.ACCOUNT_BALANCE))
+        data["leverage"] = max(1, min(50, int(p.get(
+            "leverage", config.MAX_LEVERAGE))))
+        data["risk_pct"] = float(p.get("risk_pct", config.RISK_PER_TRADE_PCT))
+        data["min_vol_m"] = float(p.get("min_vol_m",
+                                        config.MIN_QUOTE_VOLUME_24H / 1e6))
+        data["max_coins"] = max(0, int(p.get("max_coins", config.MAX_COINS)))
+        data["scan_sec"] = max(0, min(300, int(p.get(
+            "scan_sec", config.SCAN_INTERVAL_SEC))))
+    except (TypeError, ValueError):
+        return {"ok": False, "err": "please enter valid numbers"}
+    data["min_grade"] = str(p.get("min_grade",
+                                  data.get("min_grade", "A")))[:2]
+    data["strong"] = bool(p.get("strong", data.get("strong", True)))
+    data["telegram"] = bool(p.get("telegram", data.get("telegram", True)))
+    data["autostart"] = bool(p.get("autostart", data.get("autostart", True)))
+    data["keep_awake"] = bool(p.get("keep_awake",
+                                    data.get("keep_awake", False)))
+    store_settings(data)
+    apply_settings(data)
+    app.q.put(("log", f"settings saved: grade {data['min_grade']}, "
+                      f"{'strong ON' if data['strong'] else 'strong OFF'}, "
+                      f"{data['leverage']}x, {int(data['balance'])} USDT, "
+                      f"risk {data['risk_pct']}%"))
+    return {"ok": True}
+
+
+def _start_ui_server(app):
+    """
+    Local-only HTTP server for the professional desktop interface
+    (desktop/index.html):
+        GET  /           the page
+        GET  /api/data   the live snapshot (built on the Tk thread)
+        POST /api/action start/stop/scan/tgtest/sound/market/settings/quit
+    """
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    global _UI_URL
+    page = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "desktop", "index.html")
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _send(self, code, body, ctype):
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+            except OSError:
+                pass
+
+        def do_GET(self):
+            if self.path.startswith("/api/data"):
+                body = json.dumps(app._snap or {},
+                                  default=_json_default).encode("utf-8")
+                self._send(200, body, "application/json; charset=utf-8")
+            elif self.path in ("/", "/index.html"):
+                try:
+                    with open(page, "rb") as f:
+                        self._send(200, f.read(),
+                                   "text/html; charset=utf-8")
+                except OSError:
+                    self._send(500, b"desktop/index.html missing",
+                               "text/plain")
+            else:
+                self._send(404, b"not found", "text/plain")
+
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                payload = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                payload = {}
+            if self.path.startswith("/api/action"):
+                if payload.get("act") == "settings":
+                    res = _apply_web_settings(app, payload)
+                else:
+                    app.q.put(("action", payload))
+                    res = {"ok": True}
+                self._send(200, json.dumps(res).encode("utf-8"),
+                           "application/json; charset=utf-8")
+            else:
+                self._send(404, b"not found", "text/plain")
+
+    def serve():
+        global _UI_URL
+        for port in range(8730, 8736):
+            try:
+                srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+            except OSError:
+                continue
+            _UI_URL = f"http://127.0.0.1:{port}/"
+            app.q.put(("log", f"[ui] interface on {_UI_URL}"))
+            try:
+                srv.serve_forever()
+            finally:
+                srv.server_close()
+            return
+        app.q.put(("log", "[ui] no free port - web UI disabled"))
+
+    threading.Thread(target=serve, daemon=True).start()
+
+
+def _open_app_window():
+    """Open the UI as a real app window (Edge/Chrome --app = no tabs)."""
+    import shutil
+    import subprocess
+    for _ in range(40):              # wait for the server to bind
+        if _UI_URL:
+            break
+        time.sleep(0.25)
+    url = _UI_URL or "http://127.0.0.1:8730/"
+    pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    exes = [os.path.join(pf86, "Microsoft", "Edge", "Application",
+                         "msedge.exe"),
+            os.path.join(pf, "Microsoft", "Edge", "Application",
+                         "msedge.exe"),
+            shutil.which("msedge") or "",
+            shutil.which("chrome") or "",
+            os.path.join(pf, "Google", "Chrome", "Application",
+                         "chrome.exe")]
+    for exe in exes:
+        if exe and os.path.exists(exe):
+            try:
+                subprocess.Popen([exe, f"--app={url}",
+                                  "--window-size=1500,950",
+                                  "--window-position=40,30"])
+                print(f"[ui] app window opened via {exe}", flush=True)
+                return
+            except OSError:
+                continue
+    webbrowser.open(url)
+    print(f"[ui] no edge/chrome - opened default browser: {url}", flush=True)
+
+
 def _cloud_heartbeat(app, first_delay=60, interval=300):
     """
     Kick the GitHub Actions scanner (scan.yml) every `interval` seconds.
@@ -1489,6 +1843,7 @@ def _cloud_heartbeat(app, first_delay=60, interval=300):
                                creationflags=getattr(subprocess,
                                                      "CREATE_NO_WINDOW", 0))
             if r.returncode == 0:
+                app._hb_last = time.time()
                 if fails:
                     fails = 0
                     app.q.put(("log", "[cloud] heartbeat trigger OK again"))
@@ -1514,6 +1869,13 @@ def main():
         _focus_existing_window()
         print("app already running - window brought to the front")
         return
+
+    # a leftover flag from an older run must not stop the watchdog
+    try:
+        if os.path.exists(QUIT_FLAG):
+            os.remove(QUIT_FLAG)
+    except OSError:
+        pass
 
     try:
         app = SignalApp(smoke=smoke)

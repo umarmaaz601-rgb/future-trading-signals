@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Future Trading Signals</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2d333b;
+  --fg:#e6edf3; --muted:#8b949e;
+  --green:#3fb950; --red:#f85149; --amber:#e3b341; --blue:#58a6ff;
+  --purple:#bc8cff;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{background:var(--bg); color:var(--fg);
+     font:14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+     overflow:hidden}
+button{font:inherit; cursor:pointer; border:none; background:none; color:inherit}
+input,select{font:inherit}
+::-webkit-scrollbar{width:10px; height:10px}
+::-webkit-scrollbar-thumb{background:#30363d; border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+.mono{font-family:Consolas,"Cascadia Mono",monospace}
+
+/* ---------------- layout ---------------- */
+#app{display:grid; grid-template-columns:212px 1fr; height:100vh}
+#side{background:#0a0e14; border-right:1px solid var(--line);
+      display:flex; flex-direction:column; padding:14px 10px}
+.brand{display:flex; align-items:center; gap:9px; padding:4px 6px 16px}
+.brand .mark{width:34px; height:34px; border-radius:9px; background:#12212f;
+      display:flex; align-items:center; justify-content:center; font-size:17px;
+      border:1px solid #234}
+.brand b{font-size:14.5px; letter-spacing:.4px}
+.brand small{display:block; color:var(--muted); font-size:10px; font-weight:400}
+.nav{display:flex; flex-direction:column; gap:4px; margin-top:6px}
+.nav button{display:flex; align-items:center; gap:10px; padding:9px 11px;
+      border-radius:8px; color:var(--muted); font-size:13.5px; text-align:left}
+.nav button:hover{background:#141a22; color:var(--fg)}
+.nav button.on{background:#1b2534; color:var(--fg); font-weight:600;
+      box-shadow:inset 2px 0 0 var(--blue)}
+.nav .ico{width:18px; text-align:center; font-size:14px}
+.side-foot{margin-top:auto; border-top:1px solid var(--line); padding-top:12px;
+      display:flex; flex-direction:column; gap:10px}
+.sc{display:flex; gap:8px}
+.sc .box{flex:1; background:var(--panel); border:1px solid var(--line);
+      border-radius:8px; padding:7px 9px; text-align:center}
+.sc .box b{display:block; font-size:17px}
+.sc .box span{font-size:10px; color:var(--muted); letter-spacing:1px}
+.sc .box.L b{color:var(--green)} .sc .box.S b{color:var(--red)}
+.sw{display:flex; align-items:center; justify-content:space-between;
+     font-size:12.5px; color:var(--muted); padding:2px 4px}
+.tog{width:38px; height:20px; border-radius:12px; background:#30363d;
+     position:relative; transition:.15s}
+.tog::after{content:""; position:absolute; top:2px; left:2px; width:16px;
+     height:16px; border-radius:50%; background:#9aa4af; transition:.15s}
+.tog.on{background:#1f6feb} .tog.on::after{left:20px; background:#fff}
+
+#main{display:flex; flex-direction:column; min-width:0}
+#top{height:54px; border-bottom:1px solid var(--line); background:#0b1016;
+     display:flex; align-items:center; gap:14px; padding:0 18px; flex:none}
+#top h1{font-size:15px; font-weight:600}
+.live{display:flex; align-items:center; gap:7px; font-size:12px;
+      color:var(--muted); background:var(--panel); border:1px solid var(--line);
+      padding:4px 11px; border-radius:20px}
+.dot{width:8px; height:8px; border-radius:50%; background:#6e7681}
+.dot.run{background:var(--green); box-shadow:0 0 0 0 rgba(63,185,80,.6);
+      animation:pulse 1.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px rgba(63,185,80,0)}
+      100%{box-shadow:0 0 0 0 rgba(63,185,80,0)}}
+#hub{color:var(--muted); font-size:12px}
+#clock{margin-left:auto; color:var(--blue); font-size:15px; font-weight:700}
+.btn{background:var(--panel2); border:1px solid var(--line); color:var(--fg);
+     padding:6px 13px; border-radius:7px; font-size:13px}
+.btn:hover{border-color:#4a5260; background:#232b3a}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:#1f6feb; border-color:#1f6feb}
+.btn.pri:hover{background:#388bfd}
+.btn.stop{background:#490202; border-color:#7a1a1a; color:#ff9d97}
+.btn.stop:hover{background:#5d0404}
+.btn.mini{padding:5px 9px; font-size:12px}
+
+#views{flex:1; min-height:0; position:relative}
+.view{position:absolute; inset:0; display:none; padding:16px 18px;
+      overflow:auto}
+.view.on{display:block}
+.grid{display:grid; grid-template-columns:1fr 336px; gap:16px; height:100%}
+.col{min-width:0; display:flex; flex-direction:column; gap:14px}
+
+.banner{border-radius:10px; padding:11px 16px; font-weight:700;
+        font-size:15px; letter-spacing:.3px; border:1px solid rgba(255,255,255,.06)}
+.cards{display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+      padding:10px 13px; min-width:0}
+.card .cap{font-size:9.5px; color:var(--muted); letter-spacing:1.1px;
+      font-weight:600}
+.card .val{font-size:19px; font-weight:700; margin-top:3px; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis}
+.card .sub{font-size:10.5px; color:var(--muted); margin-top:2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+.toolbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.chip{padding:5px 13px; border-radius:16px; border:1px solid var(--line);
+      color:var(--muted); font-size:12.5px; background:var(--panel)}
+.chip.on{color:var(--fg); border-color:var(--blue); background:#12243b}
+.ttl{font-size:12px; color:var(--muted); letter-spacing:1.2px; font-weight:600;
+     margin-right:auto}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+       overflow:hidden; flex:1; min-height:120px; display:flex;
+       flex-direction:column}
+.panel h3{font-size:11px; color:var(--muted); letter-spacing:1.3px;
+       padding:11px 14px 9px; border-bottom:1px solid var(--line); flex:none;
+       display:flex; align-items:center; gap:8px}
+.panel .body{overflow:auto; flex:1; min-height:0}
+table{width:100%; border-collapse:collapse; font-size:13px}
+thead th{position:sticky; top:0; background:#12171f; color:var(--muted);
+       font-size:10.5px; letter-spacing:.8px; text-align:left; padding:9px 10px;
+       border-bottom:1px solid var(--line); white-space:nowrap; z-index:2}
+tbody td{padding:8px 10px; border-bottom:1px solid #20262e; white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#1a212b}
+tbody tr.sel{background:#132238}
+td.num{text-align:right; font-family:Consolas,monospace; font-size:12.5px}
+.pair{font-weight:700}
+.pill{display:inline-block; padding:2px 9px; border-radius:11px; font-size:11px;
+      font-weight:700; letter-spacing:.4px}
+.pill.L{background:#0f2e1a; color:var(--green); border:1px solid #1a5c31}
+.pill.S{background:#37110f; color:#ff7b72; border:1px solid #7a2420}
+.pill.A{background:#0f2e1a; color:var(--green)}
+.pill.Ap{background:#241a3e; color:var(--purple)}
+.pill.B{background:#0d2337; color:var(--blue)}
+.pill.C{background:#22262d; color:var(--muted)}
+.pill.p{background:#33260a; color:var(--amber); border:1px solid #6b5417}
+.pill.p.ok{background:#0f2e1a; color:var(--green); border-color:#1a5c31}
+.res{display:inline-block; padding:2.5px 10px; border-radius:11px; font-size:11.5px;
+     font-weight:700}
+.res.SL{background:#37110f; color:#ff7b72}
+.res.TP{background:#0f2e1a; color:var(--green)}
+.res.run{background:#33260a; color:var(--amber)}
+.res.skip{background:#22262d; color:var(--muted)}
+.mut{color:var(--muted)}
+.empty{padding:38px 16px; text-align:center; color:var(--muted); font-size:13.5px}
+.empty b{color:var(--fg); display:block; font-size:15px; margin-bottom:6px}
+
+/* checklist */
+.chk{padding:6px 4px}
+.chk .row{display:grid; grid-template-columns:20px 1fr; gap:8px;
+      padding:8px 10px; border-radius:8px}
+.chk .row:nth-child(odd){background:#12171f}
+.chk .ic{font-size:13px; line-height:1.3}
+.chk .ok .ic{color:var(--green)} .chk .warn .ic{color:var(--amber)}
+.chk .bad .ic{color:var(--red)}
+.chk .k{font-size:11px; color:var(--muted); letter-spacing:.7px}
+.chk .v{font-weight:600; font-size:13.5px}
+.chk .n{font-size:11px; color:var(--muted); margin-top:1px}
+.chk .row.ok .v{color:#7ee2a8} .chk .row.warn .v{color:#f2cc60}
+.chk .row.bad .v{color:#ff9d97}
+
+/* console */
+#logbox{font-family:Consolas,monospace; font-size:12.5px; padding:10px 14px;
+        white-space:pre-wrap; word-break:break-word}
+#logbox .t{color:#586069} .logline{padding:1px 0}
+.logline.err{color:#ff7b72} .logline.head{color:var(--blue)}
+
+/* settings */
+.setgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+         gap:14px; max-width:980px}
+.field{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+       padding:13px 15px}
+.field label{display:block; font-size:12px; color:var(--muted);
+       margin-bottom:7px}
+.field input[type=text],.field input[type=number],.field select{
+       width:100%; background:#0d1117; border:1px solid var(--line);
+       color:var(--fg); border-radius:7px; padding:8px 10px; outline:none}
+.field input:focus,.field select:focus{border-color:var(--blue)}
+.check{display:flex; align-items:center; gap:9px; padding:7px 0; font-size:13.5px}
+.check input{width:16px; height:16px; accent-color:#1f6feb}
+.hint{font-size:11px; color:var(--muted); margin-top:6px}
+#savebar{position:sticky; bottom:0; background:linear-gradient(transparent,
+      var(--bg) 40%); padding:16px 0 6px; display:flex; gap:10px; align-items:center}
+
+/* detail drawer */
+#drawer{position:absolute; top:0; right:-380px; width:370px; height:100%;
+        background:#10151c; border-left:1px solid var(--line); z-index:30;
+        transition:right .18s ease; display:flex; flex-direction:column;
+        box-shadow:-14px 0 34px rgba(0,0,0,.45)}
+#drawer.on{right:0}
+#drawer .dh{display:flex; align-items:center; padding:14px 16px;
+        border-bottom:1px solid var(--line)}
+#drawer .dh b{font-size:16px; flex:1}
+#drawer .db{padding:14px 16px; overflow:auto}
+.kv{display:flex; justify-content:space-between; padding:7px 0;
+    border-bottom:1px dashed #232a33; font-size:13px}
+.kv span{color:var(--muted)} .kv b{font-family:Consolas,monospace}
+.dchk{margin-top:14px}
+.dchk .item{display:flex; gap:9px; padding:7px 9px; border-radius:7px;
+    font-size:12.8px; align-items:flex-start}
+.dchk .item:nth-child(odd){background:#12171f}
+.dchk .item i{font-style:normal; width:16px; flex:none}
+.dchk .item.ok i{color:var(--green)} .dchk .item.no i{color:var(--red)}
+.dchk .item small{display:block; color:var(--muted); font-size:11px}
+
+/* toast + modal */
+#toasts{position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+        z-index:80; display:flex; flex-direction:column; gap:8px; align-items:center}
+.toast{background:#1b2534; border:1px solid var(--line); color:var(--fg);
+       padding:9px 18px; border-radius:9px; font-size:13.5px;
+       box-shadow:0 8px 26px rgba(0,0,0,.5); animation:tin .18s ease}
+.toast.err{border-color:#7a2420; color:#ff9d97}
+@keyframes tin{from{opacity:0; transform:translateY(8px)}}
+#modal{position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:90;
+       display:none; align-items:center; justify-content:center}
+#modal.on{display:flex}
+#modal .box{background:#161b22; border:1px solid var(--line); border-radius:14px;
+       padding:26px 30px; width:360px; text-align:center}
+#modal h4{font-size:16px; margin-bottom:8px}
+#modal p{color:var(--muted); font-size:13px; margin-bottom:20px}
+#modal .row{display:flex; gap:10px; justify-content:center}
+#off{position:fixed; top:64px; left:50%; transform:translateX(-50%);
+     background:#490202; color:#ffb3ad; padding:7px 16px; border-radius:8px;
+     font-size:13px; z-index:70; display:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ================= sidebar ================= -->
+  <aside id="side">
+    <div class="brand">
+      <div class="mark">📈</div>
+      <div><b>SIGNALS</b><small>LONG / SHORT • 50x • 24/7</small></div>
+    </div>
+    <nav class="nav">
+      <button data-v="signals" class="on"><span class="ico">⚡</span>Signals</button>
+      <button data-v="watch"><span class="ico">雷达</span>Watchlist</button>
+      <button data-v="console"><span class="ico">❯_</span>Console</button>
+      <button data-v="settings"><span class="ico">⚙</span>Settings</button>
+    </nav>
+    <div class="side-foot">
+      <div class="sc">
+        <div class="box L"><b id="nL">0</b><span>LONG</span></div>
+        <div class="box S"><b id="nS">0</b><span>SHORT</span></div>
+      </div>
+      <div class="sw">Sound <button class="tog on" id="snd"
+           title="alert sound"></button></div>
+      <div class="sw">Market
+        <select id="mkt" style="background:#0d1117;color:#e6edf3;
+          border:1px solid #2d333b;border-radius:6px;padding:3px 6px">
+          <option>ALL</option><option>CRYPTO</option><option>FOREX</option>
+          <option>GOLD</option><option>STOCKS</option>
+        </select>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= main ================= -->
+  <div id="main">
+    <div id="top">
+      <h1 id="vtitle">Signals</h1>
+      <div class="live"><span class="dot" id="dot"></span><span
+            id="livetxt">STOPPED</span></div>
+      <span id="hub" class="mono">provider -</span>
+      <button class="btn mini" id="bTg">✈ TG Test</button>
+      <button class="btn mini" id="bScan">⟳ Scan now</button>
+      <button class="btn mini pri" id="bRun">▶ Start</button>
+      <button class="btn mini stop" id="bQuit">⏻ Quit</button>
+      <span id="clock" class="mono">--:--:--</span>
+    </div>
+
+    <div id="views">
+      <!-- ---------- SIGNALS ---------- -->
+      <section class="view on" id="v-signals">
+        <div class="grid">
+          <div class="col">
+            <div class="banner" id="banner">MONEY FLOW: WAITING…</div>
+            <div class="cards" id="cards"></div>
+            <div class="toolbar">
+              <span class="ttl">SIGNAL FEED</span>
+              <button class="chip on" data-f="ALL">ALL</button>
+              <button class="chip" data-f="LONG">LONG</button>
+              <button class="chip" data-f="SHORT">SHORT</button>
+            </div>
+            <div class="panel" style="flex:1">
+              <div class="body">
+                <table id="sigtab">
+                  <thead><tr>
+                    <th>TIME</th><th>PAIR</th><th>SIDE</th><th>GR</th>
+                    <th>SC</th><th>P(1:2)</th><th style="text-align:right">ENTRY</th>
+                    <th style="text-align:right">STOP</th><th style="text-align:right">TP1</th>
+                    <th style="text-align:right">TP2</th><th style="text-align:right">TP3</th>
+                    <th>LEV</th><th>RESULT</th>
+                  </tr></thead>
+                  <tbody></tbody>
+                </table>
+                <div class="empty" id="sigempty" style="display:none">
+                  <b>Abhi koi signal nahi</b>
+                  Scanner live hai — jab checklist pass hogi toh yahan
+                  & phone dono par aayega.
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- right column -->
+          <div class="col">
+            <div class="panel" style="flex:1.4">
+              <h3>📋 MARKET CHECKLIST <span class="mut" style="margin-left:
+                   auto;font-weight:400" id="chkn"></span></h3>
+              <div class="body chk" id="chk"></div>
+            </div>
+            <div class="panel" style="flex:1">
+              <h3>🕑 LIVE LOG</h3>
+              <div class="body"><div id="logmini"></div></div>
+            </div>
+          </div>
+        </div>
+        <div id="drawer">
+          <div class="dh"><b id="dtitle">—</b><button class="btn mini"
+               id="dclose">✕</button></div>
+          <div class="db" id="dbody"></div>
+        </div>
+      </section>
+
+      <!-- ---------- WATCHLIST ---------- -->
+      <section class="view" id="v-watch">
+        <div class="toolbar" style="margin-bottom:12px">
+          <span class="ttl">WATCHLIST — hot setups &amp; why they are waiting</span>
+        </div>
+        <div class="panel" style="height:calc(100% - 44px)">
+          <div class="body">
+            <table id="wtab">
+              <thead><tr><th>PAIR</th><th>SIDE</th><th>GR</th><th>SCORE</th>
+                <th>STATUS</th><th>READY</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div class="empty" id="wempty" style="display:none">
+              <b>Watchlist khali</b> Scanner chalta hai toh candidates yahan
+              dikhte hain (kis wajah se block hain).
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- CONSOLE ---------- -->
+      <section class="view" id="v-console">
+        <div class="toolbar" style="margin-bottom:12px">
+          <span class="ttl">ACTIVITY LOG</span>
+          <button class="chip" id="clg">Clear view</button>
+        </div>
+        <div class="panel" style="height:calc(100% - 44px)">
+          <div class="body"><div id="logbox"></div></div>
+        </div>
+      </section>
+
+      <!-- ---------- SETTINGS ---------- -->
+      <section class="view" id="v-settings">
+        <div class="setgrid" id="setform">
+          <div class="field"><label>Account balance (USDT)</label>
+            <input type="number" id="f_balance" step="1"></div>
+          <div class="field"><label>Leverage (max 50)</label>
+            <input type="number" id="f_leverage" max="50"></div>
+          <div class="field"><label>Risk per trade (% of balance)</label>
+            <input type="number" id="f_risk_pct" step="0.1"></div>
+          <div class="field"><label>Min 24h volume (millions $)</label>
+            <input type="number" id="f_min_vol_m" step="0.1"></div>
+          <div class="field"><label>Max coins to scan (0 = ALL)</label>
+            <input type="number" id="f_max_coins"></div>
+          <div class="field"><label>Pause between scans (seconds)</label>
+            <input type="number" id="f_scan_sec"></div>
+          <div class="field"><label>Minimum signal grade</label>
+            <select id="f_min_grade"><option>A+</option><option>A</option>
+              <option>B</option><option>C</option></select>
+            <div class="hint">C = max signals • B = solid • A/A+ = strongest only</div>
+          </div>
+          <div class="field">
+            <label>Quality gates</label>
+            <div class="check"><input type="checkbox" id="f_strong">
+              <label for="f_strong" style="margin:0">STRONG setups only
+              (grade A + clean news + fresh cross)</label></div>
+            <div class="check"><input type="checkbox" id="f_telegram">
+              <label for="f_telegram" style="margin:0">Send signals to Telegram</label></div>
+            <div class="check"><input type="checkbox" id="f_autostart">
+              <label for="f_autostart" style="margin:0">Auto-start scanning on open</label></div>
+            <div class="check"><input type="checkbox" id="f_keep_awake">
+              <label for="f_keep_awake" style="margin:0">Keep PC awake (24/7)</label></div>
+          </div>
+        </div>
+        <div id="savebar">
+          <button class="btn pri" id="bsave">💾 Save settings</button>
+          <span class="mut" id="savenote">Changes apply immediately.</span>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="off">⚠ UI server disconnected — scanner app band ho gaya?</div>
+<div id="toasts"></div>
+<div id="modal"><div class="box">
+  <h4>Scanner band karein?</h4>
+  <p>Scanning ruk jayegi aur app close ho jayega.</p>
+  <div class="row"><button class="btn" id="mcancel">Cancel</button>
+    <button class="btn stop" id="mok">Yes, quit</button></div>
+</div></div>
+
+<script>
+"use strict";
+let D = null, view = "signals", filter = "ALL", selKey = null, firstData = true;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = (v, d=5) => (v===null||v===undefined||v==="") ? "—"
+  : Number(v).toLocaleString("en-US",{maximumFractionDigits:d});
+
+/* ---------------- actions ---------------- */
+async function action(act, extra={}){
+  try{
+    const r = await fetch("/api/action",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(Object.assign({act},extra))});
+    const j = await r.json();
+    if(j.ok===false) toast(j.err || "failed", true);
+    return j;
+  }catch(e){ toast("server unreachable", true); }
+}
+function toast(msg, err){
+  const t = document.createElement("div");
+  t.className = "toast" + (err ? " err" : "");
+  t.textContent = msg;
+  $("#toasts").appendChild(t);
+  setTimeout(()=>t.remove(), 3200);
+}
+
+/* ---------------- nav ---------------- */
+document.querySelectorAll(".nav button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    view = b.dataset.v;
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+    $("#v-"+view).classList.add("on");
+    $("#vtitle").textContent = b.textContent.trim();
+    $("#drawer").classList.remove("on");
+    if(view==="settings" && D) fillSettings(true);
+  };
+});
+document.querySelectorAll(".chip[data-f]").forEach(c=>{
+  c.onclick = ()=>{
+    document.querySelectorAll(".chip[data-f]").forEach(x=>x.classList.remove("on"));
+    c.classList.add("on"); filter = c.dataset.f; renderSignals();
+  };
+});
+$("#bScan").onclick = ()=>{ action("scan"); toast("scan requested"); };
+$("#bTg").onclick   = ()=>{ action("tgtest"); toast("telegram test…"); };
+$("#bRun").onclick  = ()=>{
+  const on = D && D.running;
+  action(on ? "stop" : "start");
+  toast(on ? "scanner stopping…" : "scanner starting…");
+};
+$("#bQuit").onclick = ()=> $("#modal").classList.add("on");
+$("#mcancel").onclick = ()=> $("#modal").classList.remove("on");
+$("#mok").onclick = ()=>{ $("#modal").classList.remove("on"); action("quit");
+  toast("quitting — is window ko band kar sakte hain"); };
+$("#snd").onclick = ()=>{
+  const on = !$("#snd").classList.contains("on");
+  action("sound", {value:on}); $("#snd").classList.toggle("on", on);
+};
+$("#mkt").onchange = ()=> action("market", {value:$("#mkt").value});
+$("#clg").onclick = ()=>{ $("#logbox").innerHTML =
+  '<div class="empty"><b>view cleared</b>new log lines yahan aate rahenge</div>'; };
+$("#dclose").onclick = ()=> $("#drawer").classList.remove("on");
+$("#bsave").onclick = saveSettings;
+
+/* ---------------- render ---------------- */
+function resBadge(d){
+  const r = d.res;
+  if(!r){
+    const fresh = (Date.now()/1000 - (d.ts||0)) < 75;
+    return fresh ? '<span class="res run">new…</span>'
+                 : '<span class="res run">running</span>';
+  }
+  if(r==="SL") return '<span class="res SL">❌ SL</span>';
+  if(r==="TP1") return '<span class="res TP">✅ TP1</span>';
+  if(r==="TP2") return '<span class="res TP">✅ TP2</span>';
+  if(r==="TP3") return '<span class="res TP">🎯 TP3</span>';
+  if(r==="SKIP") return '<span class="res skip">n/a</span>';
+  return '<span class="res skip">'+esc(r)+'</span>';
+}
+const gradeCls = g => g==="A+" ? "Ap" : ({"A":"A","B":"B"}[g] || "C");
+
+function renderSignals(){
+  if(!D) return;
+  const all = D.signals || [];
+  const rows = all.filter(s => filter==="ALL" || s.side===filter);
+  $("#nL").textContent = D.counts.long;
+  $("#nS").textContent = D.counts.short;
+  const tb = $("#sigtab tbody");
+  $("#sigempty").style.display = rows.length ? "none" : "block";
+  tb.innerHTML = rows.map((s,i)=>{
+    const t = new Date((s.ts||0)*1000);
+    const time = String(t.getHours()).padStart(2,"0")+":"+
+                 String(t.getMinutes()).padStart(2,"0");
+    const tp = s.take_profits || [];
+    const p = (s.prob!==null && s.prob!==undefined && s.prob>=0)
+      ? `<span class="pill p${s.prob>=0.35?" ok":""}">${Math.round(s.prob*100)}%</span>`
+      : '<span class="mut">—</span>';
+    const key = s.symbol+"|"+s.ts;
+    return `<tr data-i="${i}" class="${selKey===key?"sel":""}">
+      <td class="mono mut">${time}</td>
+      <td class="pair">${esc(s.symbol)}${
+        (s.cls && s.cls!=="crypto") ? ' <span class="mut" style="font-size:10.5px">'+esc(s.cls)+'</span>' : ""}</td>
+      <td><span class="pill ${s.side==="LONG"?"L":"S"}">${s.side==="LONG"?"▲ LONG":"▼ SHORT"}</span></td>
+      <td><span class="pill ${gradeCls(s.grade)}">${esc(s.grade||"-")}</span></td>
+      <td class="num">${s.score ?? "—"}</td>
+      <td>${p}</td>
+      <td class="num">${num(s.entry)}</td>
+      <td class="num" style="color:#ff9d97">${num(s.stop_loss)}</td>
+      <td class="num" style="color:#7ee2a8">${num(tp[0])}</td>
+      <td class="num" style="color:#7ee2a8">${num(tp[1])}</td>
+      <td class="num" style="color:#7ee2a8">${num(tp[2])}</td>
+      <td class="mono">${s.leverage ?? "-"}x</td>
+      <td>${resBadge(s)}</td></tr>`;
+  }).join("");
+  tb.querySelectorAll("tr").forEach(tr=>{
+    tr.onclick = ()=> openDetail(rows[+tr.dataset.i]);
+  });
+}
+
+function openDetail(s){
+  if(!s) return;
+  selKey = s.symbol+"|"+s.ts;
+  $("#dtitle").innerHTML = `<span class="pill ${s.side==="LONG"?"L":"S"}">${
+      s.side}</span>&nbsp; ${esc(s.symbol)}`;
+  const tp = s.take_profits || [];
+  const items = (s.checklist||[]).map(c=>{
+    const ok = !!c[1];
+    return `<div class="item ${ok?"ok":"no"}"><i>${ok?"✔":"✖"}</i>
+      <div><b>${esc(c[0])}</b><small>${esc(c[2]||"")}</small></div></div>`;
+  }).join("");
+  $("#dbody").innerHTML = `
+    <div class="kv"><span>Time</span><b>${new Date((s.ts||0)*1000).toLocaleString()}</b></div>
+    <div class="kv"><span>Grade / score</span><b>${esc(s.grade||"-")} / ${s.score ?? "—"}</b></div>
+    <div class="kv"><span>P(1:2)</span><b>${(s.prob!=null && s.prob>=0)?Math.round(s.prob*100)+"%":"not measured"}</b></div>
+    <div class="kv"><span>Entry</span><b>${num(s.entry)}</b></div>
+    <div class="kv"><span>Stop loss (${num(s.stop_pct,3)}%)</span><b style="color:#ff9d97">${num(s.stop_loss)}</b></div>
+    <div class="kv"><span>TP1 / TP2 / TP3</span><b style="color:#7ee2a8">${num(tp[0])} / ${num(tp[1])} / ${num(tp[2])}</b></div>
+    <div class="kv"><span>Leverage</span><b>${s.leverage ?? "-"}x • risk ${num(s.risk_usd,2)}$</b></div>
+    <div class="kv"><span>Result</span><b>${resBadge(s)}</b></div>
+    <div class="kv"><span>Telegram</span><b>${s.telegram_ok===undefined?"—":(s.telegram_ok?"✓ sent":"n/a")}</b></div>
+    ${items ? `<div class="dchk"><div class="ttl" style="margin:4px 0 8px">CHECKLIST</div>${items}</div>` : ""}
+    ${dExtra(s)}`;
+  $("#drawer").classList.add("on");
+  renderSignals();
+}
+function dExtra(s){
+  return s.note ? `<div class="kv"><span>Note</span><b>${esc(s.note)}</b></div>` : "";
+}
+
+function renderCards(){
+  if(!D) return;
+  const b = D.banner || {};
+  const bn = $("#banner");
+  bn.textContent = b.text || "MONEY FLOW: WAITING…";
+  bn.style.background = b.bg || "#161b22";
+  bn.style.color = b.fg || "#e6edf3";
+  const order = ["flow","today","results","fg","btc","last"];
+  $("#cards").innerHTML = order.map(k=>{
+    const c = (D.cards||{})[k] || {v:"—",c:"#e6edf3",n:""};
+    return `<div class="card"><div class="cap">${CAPS[k]}</div>
+      <div class="val" style="color:${c.c}">${esc(c.v)}</div>
+      <div class="sub">${esc(c.n)}</div></div>`;
+  }).join("");
+}
+const CAPS = {flow:"MONEY FLOW", today:"SIGNALS TODAY",
+  results:"RESULTS (TP1 vs SL)", fg:"FEAR & GREED", btc:"BTC TREND",
+  last:"LAST SIGNAL"};
+
+function renderChecklist(){
+  if(!D) return;
+  const rows = D.checklist || [];
+  $("#chkn").textContent = rows.length ? "8 checks" : "waiting for data…";
+  const ic = {ok:"●", warn:"▲", bad:"■"};
+  $("#chk").innerHTML = rows.map(r=>`
+    <div class="row ${r[2]}"><span class="ic">${ic[r[2]]||"●"}</span>
+      <div><div class="k">${esc(r[0])}</div><div class="v">${esc(r[1])}</div>
+      ${r[3]?`<div class="n">${esc(r[3])}</div>`:""}</div></div>`).join("");
+}
+
+function renderWatch(){
+  if(!D) return;
+  const rows = D.watch || [];
+  $("#wempty").style.display = rows.length ? "none" : "block";
+  $("#wtab tbody").innerHTML = rows.map(w=>`
+    <tr><td class="pair">${esc(w.sym ?? w.symbol ?? "?")}</td>
+    <td><span class="pill ${w.side==="LONG"?"L":"S"}">${w.side}</span></td>
+    <td><span class="pill ${gradeCls(w.grade)}">${esc(w.grade||"-")}</span></td>
+    <td class="num">${w.score ?? "—"}</td>
+    <td class="mut">${esc(w.status||"")}</td>
+    <td>${w.ready ? '<span class="res TP">YES</span>'
+                  : '<span class="res skip">no</span>'}</td></tr>`).join("");
+}
+
+function renderLog(){
+  if(!D) return;
+  const lines = D.log || [];
+  const html = lines.slice(-260).map(l=>{
+    const err = /Traceback|FAILED|failed|ERROR/.test(l.t||"");
+    const head = /saved|NEW |settings|auto-start|✅|pushed/.test(l.t||"");
+    return `<div class="logline ${err?"err":(head?"head":"")}">`+
+      `<span class="t">${esc(l.t)}</span> ${esc(l.m)}</div>`;
+  }).join("");
+  $("#logbox").innerHTML = html || '<div class="empty"><b>log khali</b></div>';
+  const mini = lines.slice(-30).map(l=>{
+    const err = /Traceback|FAILED|ERROR/.test(l.t||"");
+    return `<div class="logline ${err?"err":""}"><span class="t">${esc(l.t)}</span> ${
+      esc(l.m)}</div>`;
+  }).join("");
+  $("#logmini").innerHTML = mini ||
+    '<div class="empty" style="padding:16px">koi activity nahi</div>';
+  if(view==="console"){
+    const b = $("#logbox").parentElement;
+    b.scrollTop = b.scrollHeight;
+  }
+}
+
+function fillSettings(force){
+  if(!D || !D.settings) return;
+  const s = D.settings, ae = document.activeElement;
+  const inForm = ae && ae.closest && ae.closest("#setform");
+  if(inForm && !force) return;
+  $("#f_balance").value = s.balance;
+  $("#f_leverage").value = s.leverage;
+  $("#f_risk_pct").value = s.risk_pct;
+  $("#f_min_vol_m").value = s.min_vol_m;
+  $("#f_max_coins").value = s.max_coins;
+  $("#f_scan_sec").value = s.scan_sec;
+  $("#f_min_grade").value = s.min_grade;
+  $("#f_strong").checked = !!s.strong;
+  $("#f_telegram").checked = !!s.telegram;
+  $("#f_autostart").checked = !!s.autostart;
+  $("#f_keep_awake").checked = !!s.keep_awake;
+}
+async function saveSettings(){
+  const v = id => $("#f_"+id).value;
+  const j = await action("settings", {
+    balance: v("balance"), leverage: v("leverage"),
+    risk_pct: v("risk_pct"), min_vol_m: v("min_vol_m"),
+    max_coins: v("max_coins"), scan_sec: v("scan_sec"),
+    min_grade: v("min_grade"),
+    strong: $("#f_strong").checked, telegram: $("#f_telegram").checked,
+    autostart: $("#f_autostart").checked, keep_awake: $("#f_keep_awake").checked
+  });
+  if(j && j.ok){ toast("Settings saved ✅"); $("#savenote").textContent =
+    "Saved at " + new Date().toLocaleTimeString(); }
+}
+
+function renderStatus(){
+  if(!D) return;
+  const st = D.status || {};
+  $("#livetxt").textContent = (st.text||"STOPPED").replace(/^.\s*/,"");
+  $("#dot").classList.toggle("run", !!D.running);
+  $("#bRun").textContent = D.running ? "■ Stop" : "▶ Start";
+  $("#bRun").classList.toggle("pri", !D.running);
+  $("#bRun").classList.toggle("stop", !!D.running);
+  $("#hub").textContent = D.hub || "provider -";
+  const snd = !!D.sound;
+  $("#snd").classList.toggle("on", snd);
+  if(D.market && $("#mkt").value !== D.market) $("#mkt").value = D.market;
+}
+
+/* ---------------- poll ---------------- */
+async function poll(){
+  try{
+    const r = await fetch("/api/data", {cache:"no-store"});
+    if(!r.ok) throw 0;
+    D = await r.json();
+    $("#off").style.display = "none";
+    if(firstData){ firstData = false; fillSettings(true);
+      if(D.ui_intro_done){} else { D.ui_intro_done=1; } }
+    renderStatus(); renderCards(); renderSignals(); renderChecklist();
+    renderWatch(); renderLog();
+  }catch(e){
+    $("#off").style.display = "block";
+  }
+}
+setInterval(poll, 1500);
+poll();
+setInterval(()=>{
+  const d = new Date();
+  $("#clock").textContent = d.toTimeString().slice(0,8);
+}, 1000);
+</script>
+</body>
+</html>
