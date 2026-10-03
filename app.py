@@ -1426,22 +1426,33 @@ class SignalApp(tk.Tk):
     def _build_mini(self):
         """Tiny always-on-top status bar - the Tk window itself is hidden,
         this one keeps the APP_TITLE so the desktop shortcut can find and
-        focus us, and carries OPEN UI / QUIT."""
+        focus us.  Closing it only HIDES it - the scanner keeps running
+        (a close must never stop 24/7 scanning)."""
         m = tk.Toplevel(self)
         m.title(APP_TITLE)
-        w, h = 320, 100
+        self.mini = m
+        w, h = 320, 96
         x = max(10, m.winfo_screenwidth() - w - 26)
         y = max(10, m.winfo_screenheight() - h - 76)
         m.geometry(f"{w}x{h}+{x}+{y}")
         m.configure(bg="#0d1117")
         m.resizable(False, False)
         m.attributes("-topmost", True)
-        m.protocol("WM_DELETE_WINDOW", self._on_close)
-        self.mini_status = tk.Label(m, text="● STOPPED", bg="#0d1117",
+        m.protocol("WM_DELETE_WINDOW", self._mini_hide)   # X = hide only
+        head = tk.Frame(m, bg="#0d1117")
+        head.pack(fill="x", padx=13, pady=(12, 1))
+        self.mini_status = tk.Label(head, text="● STOPPED", bg="#0d1117",
                                     fg=MUTED, font=("Segoe UI", 11, "bold"),
                                     anchor="w")
-        self.mini_status.pack(fill="x", padx=13, pady=(12, 1))
-        tk.Label(m, text="scanner background mein 24/7 chalta rahega",
+        self.mini_status.pack(side="left", fill="x", expand=True)
+        tk.Label(head, text="✕", bg="#0d1117", fg=MUTED,
+                 font=("Segoe UI", 10, "bold"), cursor="hand2",
+                 padx=4
+                 ).pack(side="right")
+        head.winfo_children()[-1].bind(
+            "<Button-1>", lambda e: self._mini_hide())
+        tk.Label(m, text="scanner background mein 24/7 chalta hai - "
+                         "✕ sirf bar ko chhupata hai",
                  bg="#0d1117", fg=MUTED, font=("Segoe UI", 8)
                  ).pack(anchor="w", padx=13)
         row = tk.Frame(m, bg="#0d1117")
@@ -1449,11 +1460,25 @@ class SignalApp(tk.Tk):
         ttk.Button(row, text="☰  OPEN UI", style="TButton",
                    command=lambda: threading.Thread(
                        target=_open_app_window, daemon=True).start()
-                   ).pack(side="left", expand=True, fill="x", padx=(0, 6))
-        ttk.Button(row, text="⏻  QUIT", style="Stop.TButton",
-                   command=self._on_close
-                   ).pack(side="left", expand=True, fill="x", padx=(6, 0))
-        print("[ui] mini status bar ready", flush=True)
+                   ).pack(side="left", fill="x", expand=True)
+        print("[ui] mini status bar ready (X = hide, never quits)",
+              flush=True)
+
+    def _mini_hide(self):
+        """Hide the status bar - scanning continues untouched."""
+        try:
+            self.mini.winfo_children()          # exists?
+            self.mini.withdraw()
+            print("[ui] mini bar hidden (scanner keeps running)", flush=True)
+        except Exception:
+            pass
+
+    def _mini_show(self):
+        try:
+            self.mini.deiconify()
+            self.mini.lift()
+        except Exception:
+            pass
 
     def _do_action(self, a):
         """Commands posted by the web UI (always on the Tk thread)."""
