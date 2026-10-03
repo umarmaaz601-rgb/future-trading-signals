@@ -80,8 +80,11 @@ TP1_R, TP2_R, TP3_R = 2.0, 3.0, 5.0   # take profits at 2x / 3x / 5x of risk
 #     Breakeven for a 1:2 trade is 33% - so 35%+ = positive edge.
 # ----------------------------------------------------------------
 PROB_MIN = 0.35          # minimum P(hit 2R before SL) to allow a signal
-PROB_LOOKBACK = 60       # 2m candles replayed to measure it (needs long
-                         # horizons so wide stops still get decided)
+PROB_LOOKBACK = 240      # 2m candles replayed to measure it - the FULL 8h
+                         # trigger history (60 = only 2h -> quiet bars left
+                         # the model undecided (None) and the gate silently
+                         # let unmeasured signals through: GBPUSD/EURCAD
+                         # showed None at 60 but 2%/12% at 240, both losers)
 
 # ----------------------------------------------------------------
 # 6) STRATEGY THRESHOLDS  (the checklist rules)
