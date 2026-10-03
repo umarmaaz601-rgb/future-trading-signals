@@ -473,6 +473,20 @@ def test_outcomes():
     seq, fin = walk([(t0s - 300, 99.0, 98.0)], t0s, "LONG", sl, tps)
     ok &= check("candles before the signal ignored",
                 seq is None and not fin, f"-> {seq}")
+    # ---- desktop push vs cloud scan: the same cross detected twice
+    from gh_runner import collapse_reposts
+    a = {"ts": 1000.0, "symbol": "EURUSD", "side": "SHORT"}
+    b = {"ts": 1150.0, "symbol": "EURUSD", "side": "SHORT"}   # same cross
+    c = {"ts": 1150.0, "symbol": "GBPUSD", "side": "SHORT"}   # other coin
+    d = {"ts": 5000.0, "symbol": "EURUSD", "side": "SHORT"}   # re-signal
+    out = collapse_reposts([a, b, c, d])
+    ok &= check("re-detected cross collapsed to one",
+                len(out) == 3 and {x["symbol"] for x in out}
+                == {"EURUSD", "GBPUSD"}, f"-> {len(out)} left")
+    ok &= check("earliest copy kept, later re-signal survives",
+                [x["ts"] for x in out if x["symbol"] == "EURUSD"]
+                == [1000.0, 5000.0],
+                f"-> {[x['ts'] for x in out if x['symbol'] == 'EURUSD']}")
     return ok
 
 

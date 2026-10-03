@@ -74,6 +74,52 @@ def on_signal(sig, ok):
     new_signals.append(d)
 
 
+def take_desktop_signals():
+    """
+    Signals the DESKTOP app detected arrive as the workflow input
+    `extra_signals` (the app runs `gh workflow run -f extra_signals=...`
+    on every signal).  The heartbeat's 5-minute cloud scan alone can
+    miss a cross that only lives ~10 minutes - EURUSD/USDSEK on Oct 2
+    never reached the phone that way - so the desktop hands them over.
+    """
+    raw = (os.getenv("EXTRA_SIGNALS") or "").strip()
+    if not raw:
+        return 0
+    try:
+        items = json.loads(raw)
+    except ValueError:
+        print(f"[in] extra_signals is not valid JSON: {raw[:80]}",
+              flush=True)
+        return 0
+    added = 0
+    for d in items if isinstance(items, list) else [items]:
+        if not isinstance(d, dict) or not d.get("symbol") or not d.get("side"):
+            continue
+        new_signals.append(d)
+        added += 1
+        print(f"[in] desktop signal injected: {d.get('symbol')} "
+              f"{d.get('side')} grade={d.get('grade')}", flush=True)
+    return added
+
+
+def collapse_reposts(signals, window=300):
+    """
+    The desktop push and the cloud scan can detect the SAME cross
+    seconds apart (different ts), and the old history can hold a copy
+    too - keep only the earliest copy.  Cooldown is 30 min per side, so
+    a repeat within `window` seconds can only be a re-detection.
+    """
+    kept = []
+    for d in sorted(signals, key=lambda x: x.get("ts") or 0):
+        if any(k.get("symbol") == d.get("symbol")
+               and k.get("side") == d.get("side")
+               and abs((k.get("ts") or 0) - (d.get("ts") or 0)) <= window
+               for k in kept):
+            continue
+        kept.append(d)
+    return kept
+
+
 def on_watch(w):
     try:
         watch_rows[w["key"]] = {k: v for k, v in w.items()
@@ -127,6 +173,7 @@ def main():
     apply_settings()
     s.refresh_context(force=True)
     s.run_scan()
+    take_desktop_signals()
     took = time.time() - t0
 
     # ---- merge with the previous data.json (keep history) ----
@@ -141,7 +188,8 @@ def main():
     merged = new_signals + [d for d in prev
                             if (d.get("ts"), d.get("symbol"),
                                 d.get("side")) not in seen]
-    merged = sorted(merged, key=lambda d: d.get("ts") or 0,
+    merged = sorted(collapse_reposts(merged),
+                    key=lambda d: d.get("ts") or 0,
                     reverse=True)[:40]
 
     # ---- TP/SL outcome of every tracked signal (the mobile app shows it)

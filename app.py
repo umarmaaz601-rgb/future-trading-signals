@@ -1285,6 +1285,7 @@ class SignalApp(tk.Tk):
                     self._update_context(msg[1])
                 elif kind == "signal":
                     self._add_signal(msg[1], telegram_ok=msg[2])
+                    _push_signal_cloud(msg[1], msg[2], self.q)
                 elif kind == "status":
                     text, colour = msg[1]
                     self._set_status(text, colour)
@@ -1417,6 +1418,48 @@ class SignalApp(tk.Tk):
 
 
 # ---------------------------------------------------------------- cloud
+def _push_signal_cloud(sig, ok, q):
+    """
+    Hand EVERY desktop signal straight to the cloud run (workflow input
+    `extra_signals`) so the phone sees it too - the 5-minute heartbeat
+    scan can miss a cross that lives only ~10 minutes, and those never
+    reached data.json (EURUSD / USDSEK, Oct 2).  Fire and forget.
+    """
+    import json
+    import shutil
+    import subprocess
+    import threading
+
+    def run():
+        gh = shutil.which("gh")
+        if not gh:
+            return
+        try:
+            d = {k: v for k, v in vars(sig).items()
+                 if not k.startswith("_")}
+            d["take_profits"] = list(d.get("take_profits") or ())
+            d["checklist"] = [[n, bool(o), str(t)]
+                              for n, o, t in (d.get("checklist") or ())]
+            d["telegram_ok"] = bool(ok)
+            payload = json.dumps([d], default=lambda o: o.item()
+                                 if hasattr(o, "item") else str(o))
+            r = subprocess.run(
+                [gh, "workflow", "run", "scan.yml", "--ref", "main",
+                 "-f", "extra_signals=" + payload],
+                capture_output=True, text=True, timeout=45,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            if r.returncode == 0:
+                q.put(("log", f"[cloud] {d.get('symbol')} {d.get('side')} "
+                              f"pushed to the phone feed"))
+            else:
+                q.put(("log", "[cloud] signal push failed: "
+                              + (r.stderr or "").strip()[:120]))
+        except Exception as e:
+            q.put(("log", f"[cloud] signal push error: {e}"))
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def _cloud_heartbeat(app, first_delay=60, interval=300):
     """
     Kick the GitHub Actions scanner (scan.yml) every `interval` seconds.
@@ -1442,7 +1485,9 @@ def _cloud_heartbeat(app, first_delay=60, interval=300):
         try:
             r = subprocess.run([gh, "workflow", "run", "scan.yml",
                                 "--ref", "main"],
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True, timeout=30,
+                               creationflags=getattr(subprocess,
+                                                     "CREATE_NO_WINDOW", 0))
             if r.returncode == 0:
                 if fails:
                     fails = 0

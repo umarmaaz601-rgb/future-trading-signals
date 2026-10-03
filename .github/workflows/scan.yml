@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      extra_signals:
+        description: "Desktop-detected signals as a JSON array (forwarded to data.json)"
+        required: false
+        type: string
 
 concurrency:
   group: signal-scan
@@ -56,6 +61,8 @@ jobs:
           MIN_GRADE: "B"
           STRONG_ONLY: "1"
           PROB_MIN: "0.35"
+          # desktop handover - one signal pushed via `gh workflow run -f`
+          EXTRA_SIGNALS: ${{ inputs.extra_signals || '' }}
         run: python gh_runner.py
 
       - name: Publish dashboard
